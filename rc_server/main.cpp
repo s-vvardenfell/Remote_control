@@ -42,8 +42,6 @@ enum COMMANDS
     EXIT = 111,
     SHOW_DIR,
     GET_FILE,
-
-
 };
 
 

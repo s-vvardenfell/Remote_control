@@ -6,8 +6,10 @@
 tasks.txt
 
 #Catalogues
-/bin
-/obj
+rc_server/bin
+rc_server/obj
+rc_client/bin
+rc_client/obj
 
 # Prerequisites
 *.d

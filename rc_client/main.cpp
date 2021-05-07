@@ -18,8 +18,6 @@ enum COMMANDS
     EXIT = 111,
     SHOW_DIR,
     GET_FILE,
-
-
 };
 
 #define PORT "3490"
