@@ -34,8 +34,10 @@ void save_file(string file_content);
 int validationInput();
 void send_msg_to_exit(int sockfd);
 void do_some_work(int sockfd);
-void show_dir(int sockfd);
-void send_command(int sockfd);
+void show_home_dir(int sockfd);
+void navigate(int sockfd);
+void send_command(int sockfd, int cmnd);
+void recv_file_and_show(int sockfd);
 
 enum COMMANDS
 {
@@ -60,7 +62,7 @@ void client_handler(int sockfd)
             }
             case 2:
             {
-                printf("Show dir msg\n"); show_dir(sockfd); break;
+                printf("Show dir msg\n"); show_home_dir(sockfd); break;
             }
             case 3:
             {
@@ -72,7 +74,7 @@ void client_handler(int sockfd)
             }
             case 5:
             {
-                printf("Getting a file from remote pc\n"); break;
+                printf("Getting a file from remote pc\n"); navigate(sockfd); break;
             }
             default: exit(0);
 
@@ -82,11 +84,20 @@ void client_handler(int sockfd)
 
 }
 
-
-
-void send_command(int sockfd, int comnd)
+void navigate(int sockfd)
 {
-    int bytesSend = send(sockfd, reinterpret_cast<char*>(&comnd), sizeof(int), 0);
+    send_command(sockfd, 5);
+
+    recv_file_and_show(sockfd);
+
+//    recv_file_and_save(sockfd);
+
+}
+
+
+void send_command(int sockfd, int cmnd)
+{
+    int bytesSend = send(sockfd, reinterpret_cast<char*>(&cmnd), sizeof(int), 0);
     if (bytesSend == -1)
     {
         perror("send");
@@ -104,7 +115,7 @@ void send_msg_to_exit(int sockfd)
 
 }
 
-void show_dir(int sockfd)
+void show_home_dir(int sockfd)
 {
     send_command(sockfd, 2);
 
@@ -190,30 +201,47 @@ void recv_file_and_save(int sockfd)
 
     ofstream ofs;
     ofs.open(file_name);
+
     ofs<<data_file;
+
     ofs.close();
+}
 
-//
-//    int fd;
-//
-//    fd = open (file_name.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0640);
-//    if (fd == -1)
-//    {
-//        fprintf (stderr, "Cannot create file (%s)\n", file_name.c_str());
-//        return;
-//    }
-//
-//
-//    write (fd, buff, msg_size);
-//
-//    if (close (fd) == -1)
-//    {
-//        fprintf (stderr, "Cannot close file with descriptor=%d\n", fd);
-//        return;
-//    }
+void recv_file_and_show(int sockfd)
+{
+    send_command(sockfd, 3);
 
-//    cout<<string(buff, msg_size)<<endl;
-//    save_file(buff, msg_size);
+    int msg_size;
+
+    int bytesRecv = recv(sockfd, &msg_size, sizeof(int), 0);
+
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("recv 0");
+        exit(EXIT_FAILURE);
+    }
+
+    char* buff = new char[msg_size+1];
+
+    bytesRecv = recv(sockfd, buff, msg_size, 0);
+
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("recv 0");
+        exit(EXIT_FAILURE);
+    }
+
+    cout<<string(buff, msg_size)<<endl;
 }
 
 int main(int argc, char* argv[])

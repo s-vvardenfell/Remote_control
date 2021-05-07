@@ -1,4 +1,5 @@
 #include <fstream>
+#include <iostream>
 #include "stdio.h"
 #include <stdlib.h>
 #include <unistd.h>
@@ -10,6 +11,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <dirent.h>
+
+#include <string.h>
+#include <sys/stat.h>
 
 using namespace std;
 
@@ -31,11 +35,157 @@ string read_file(string file_name);
 int sendall(int sockfd, const char *buf, int *len);
 void *get_in_addr(struct sockaddr *sa);
 void skan_dir_and_send(int sockfd);
+void navigate(int sockfd);
 
+void show_home_dir()
+{
+    printf("show_home_dir\n");
+
+    DIR *dir;
+    struct dirent *entry;
+
+    dir = opendir (getenv("HOME")); //получаем имя домашнего каталога/директории через переменную окружения
+
+    if (dir == NULL)
+    {
+        fprintf (stderr, "opendir() error\n");
+        return;
+    }
+
+    string data_to_send = "Catalogues info:\n";
+
+    while ((entry = readdir (dir)) != NULL) //получаем содержимое каталога/директории
+    {
+        string temp = entry->d_name;
+        if(temp[0] == '.') continue;
+
+        data_to_send.append(entry->d_name).append("\n");
+//        printf ("%s\n", entry->d_name;
+    }
+
+    cout<<data_to_send<<endl;
+}
+
+void show_cur_dir_name()
+{
+    printf("show_cur_dir\n");
+
+    int buf_size = 1024;
+    char * buf;
+    if (buf == NULL)
+    {
+        fprintf (stderr, "buf is NULL\n");
+        return;
+    }
+
+    buf = getcwd (NULL, buf_size);
+
+    if (buf == NULL)
+    {
+        fprintf (stderr, "getcwd() error\n");
+        return;
+    }
+
+    printf ("Current directory: %s\n", buf);
+    free (buf);
+
+}
+
+void change_dir_to()
+{
+    printf("change_dir_to\n");
+
+    string new_dir;
+    getline(cin, new_dir);
+
+    if (chdir (new_dir.c_str()) == -1)
+    {
+        fprintf (stderr, "chdir() error\n");
+        return;
+    }
+}
+
+void show_cur_dir_content()
+{
+    DIR * dir;
+    struct dirent * entry;
+    //
+    int buf_size = 1024;
+    char * buf;
+    if (buf == NULL)
+    {
+        fprintf (stderr, "buf is NULL\n");
+        return;
+    }
+
+    buf = getcwd (NULL, buf_size);
+
+    if (buf == NULL)
+    {
+        fprintf (stderr, "getcwd() error\n");
+        return;
+    }
+
+    printf ("Current directory: %s\n", buf);
+    printf ("Basename: %s\n", basename (buf));
+
+    dir = opendir(buf);
+
+    if (dir == NULL)
+    {
+        fprintf (stderr, "opendir() error\n");
+        return;
+    }
+
+    printf ("Current directory contents: %s\n", buf);
+
+    while ((entry = readdir (dir)) != NULL)
+        printf ("%s\n", entry->d_name);
+
+    closedir (dir);
+    free (buf);
+
+}
+
+void show_file_detail_info()
+{
+    struct stat st;
+
+    string new_dir;
+    getline(cin, new_dir);
+
+    if (stat (new_dir.c_str(), &st) == -1)
+    {
+        fprintf (stderr, "stat() error\n");
+        return;
+    }
+
+    printf ("FILE:\t\t%s\n", new_dir.c_str());
+    printf ("UID:\t\t%d\n", (int) st.st_uid);
+    printf ("GID:\t\t%d\n", (int) st.st_gid);
+    printf ("SIZE:\t\t%ld\n", (long int) st.st_size);
+    printf ("AT:\t\t%s", ctime (&st.st_atime));
+    printf ("MT:\t\t%s", ctime (&st.st_mtime));
+
+}
+
+void delete_file()
+{
+    string file_to_delete;
+    getline(cin, file_to_delete);
+
+    if (unlink (file_to_delete.c_str()) == -1)
+    {
+        fprintf (stderr, "Cannot unlink file (%s)\n", file_to_delete.c_str());
+        return;
+    }
+
+
+}
 
 void server_handler(int sockfd)
 {
-    int cmnd;
+    int cmnd=0;
 
     while(1)
     {
@@ -61,12 +211,18 @@ void server_handler(int sockfd)
             }
             case 5:
             {
-                printf("Sending file to remote pc\n"); break;
+                printf("Navigating from remote pc\n"); navigate(sockfd); break;
             }
             default : exit(0);
         }
 
     }
+
+}
+
+void navigate(int sockfd)
+{
+    skan_dir_and_send(sockfd);
 
 }
 
@@ -87,6 +243,9 @@ void skan_dir_and_send(int sockfd)
 
     while ((entry = readdir (dir)) != NULL) //получаем содержимое каталога/директории
     {
+        string temp = entry->d_name;
+        if(temp[0] == '.') continue;
+
         data_to_send.append(entry->d_name).append("\n");
 //        printf ("%s\n", entry->d_name;
     }
