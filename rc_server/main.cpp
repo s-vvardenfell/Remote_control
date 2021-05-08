@@ -28,7 +28,7 @@ using namespace std;
 void sigchld_handler(int s);
 void *get_in_addr(struct sockaddr *sa);
 int sendall(int s, const char *buf, int *len);
-void log_message(string message);
+void log_message(string message, int val);
 void recv_file_and_save(int new_fd);
 void recv_file_and_show(int new_fd);
 void save_file(string file_content);
@@ -78,6 +78,13 @@ void delete_file(int sockfd)
     send_info_to_client(sockfd);
 }
 
+void download_file(int sockfd)
+{
+    send_command(sockfd, 8);
+    send_info_to_client(sockfd);
+    recv_file_and_save(sockfd);
+}
+
 
 
 enum COMMANDS
@@ -93,7 +100,8 @@ const char* help_str = "case 1: Exit programm\n"
                         "case 4: change_dir_to\n"
                         "case 5: show_cur_dir_content\n"
                         "case 6: show_file_detail_info\n"
-                        "case 7: delete_file\n";
+                        "case 7: delete_file\n"
+                        "case 8: download_file\n";
 
 
 void client_handler(int sockfd)
@@ -134,6 +142,10 @@ void client_handler(int sockfd)
             case 7:
             {
                 delete_file(sockfd); break;
+            }
+            case 8:
+            {
+                download_file(sockfd); break;
             }
             default: break;
 
@@ -187,6 +199,7 @@ string generate_file_name()
     char* dt = ctime(&now);
 
     file_name.append(dt);
+    file_name.erase(file_name.size()-1, 1);
 
     return file_name;
 
@@ -211,8 +224,6 @@ void save_file(char* file_content, int msg_size)
 
 void recv_file_and_save(int sockfd)
 {
-    send_command(sockfd, 3);
-
     int msg_size;
 
     int bytesRecv = recv(sockfd, &msg_size, sizeof(int), 0);
@@ -252,9 +263,17 @@ void recv_file_and_save(int sockfd)
     ofstream ofs;
     ofs.open(file_name);
 
+    if(!ofs.is_open())
+    {
+        printf("Cannot write file");
+        return ;
+    }
+
     ofs<<data_file;
+//    ofs.write(buff, msg_size);
 
     ofs.close();
+
 }
 
 void recv_file_and_show(int sockfd)
@@ -290,8 +309,8 @@ void recv_file_and_show(int sockfd)
     }
 
     string info_to_show(buff, msg_size);
-//    info_to_show.erase(info_to_show.size(), 1);
-    cout<<info_to_show<<endl;
+    info_to_show.erase(info_to_show.size(), 1);
+    cout<<info_to_show;
 }
 
 int main(int argc, char* argv[])
@@ -426,7 +445,6 @@ int main(int argc, char* argv[])
 
     }
 
-
     return EXIT_SUCCESS;
 
 }
@@ -472,7 +490,7 @@ int sendall(int s, const char *buf, int *len)
     return n==-1?-1:0; // -1 error, 0 success
 }
 
-void log_message(string message)
+void log_message(string message, int val)
 {
     ofstream outf;
     outf.open(LOG_FILE, ios::app);
@@ -482,7 +500,7 @@ void log_message(string message)
 		exit(1);
 	}
 
-	outf<<message<<endl;
+	outf<<message<<" "<<val<<endl;
 
 	outf.close();
 }

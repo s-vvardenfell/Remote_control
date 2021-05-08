@@ -27,13 +27,12 @@ enum COMMANDS
 #define PORT "3490"
 
 #define LOG_FILE "/home/chaginsergey/Downloads/Server_files/log_file.log"
-#define SERV_DIR "/home/chaginsergey/Downloads/Server_files/"
-#define MSG_FILE "/home/chaginsergey/Downloads/Enron_Complex.jpg"
 
 void read_file_and_send(int sockfd, string file_name);
 string read_file(string file_name);
-void send_info_to_server(int sockfd, string data_to_send);
-string recv_info_from_server(int sockfd);
+void send_data_to_server(int sockfd, string data_to_send);
+string recv_data_from_server(int sockfd);
+
 int sendall(int sockfd, const char *buf, int *len);
 void *get_in_addr(struct sockaddr *sa);
 
@@ -63,9 +62,7 @@ void show_home_dir(int sockfd)
         data_to_send.append(entry->d_name).append("\n");
     }
 
-    cout<<data_to_send<<endl;
-
-    send_info_to_server(sockfd, data_to_send);
+    send_data_to_server(sockfd, data_to_send);
 }
 
 void show_cur_dir_name(int sockfd)
@@ -81,7 +78,7 @@ void show_cur_dir_name(int sockfd)
         return;
     }
 
-    send_info_to_server(sockfd, buf);
+    send_data_to_server(sockfd, buf);
 
     free (buf);
 
@@ -89,7 +86,7 @@ void show_cur_dir_name(int sockfd)
 
 void change_dir_to(int sockfd)
 {
-    string data = recv_info_from_server(sockfd);
+    string data = recv_data_from_server(sockfd);
 
     if (chdir(data.c_str()) == -1)
     {
@@ -131,7 +128,7 @@ void show_cur_dir_content(int sockfd)
         data_to_send.append(temp).append("\n");
     }
 
-    send_info_to_server(sockfd, data_to_send);
+    send_data_to_server(sockfd, data_to_send);
 
     closedir (dir);
     free (buf);
@@ -142,7 +139,7 @@ void show_file_detail_info(int sockfd)
 {
     struct stat st;
 
-    string data = recv_info_from_server(sockfd);
+    string data = recv_data_from_server(sockfd);
 
     if (stat (data.c_str(), &st) == -1)
     {
@@ -158,13 +155,13 @@ void show_file_detail_info(int sockfd)
     .append("AT:\t\t").append(ctime (&st.st_atime))
     .append("MT:\t\t").append(ctime (&st.st_mtime)).append("\n");
 
-    send_info_to_server(sockfd, data_to_send);
+    send_data_to_server(sockfd, data_to_send);
 
 }
 
 void delete_file(int sockfd)
 {
-    string data = recv_info_from_server(sockfd);
+    string data = recv_data_from_server(sockfd);
 
     if (unlink (data.c_str()) == -1)
     {
@@ -172,6 +169,13 @@ void delete_file(int sockfd)
         return;
     }
 
+}
+
+void upload_file(int sockfd)
+{
+    string file_to_upload = recv_data_from_server(sockfd);
+
+    read_file_and_send(sockfd, file_to_upload);
 }
 
 void server_handler(int sockfd)
@@ -212,6 +216,10 @@ void server_handler(int sockfd)
             {
                 delete_file(sockfd); break;
             }
+            case 8:
+            {
+                upload_file(sockfd); break;
+            }
             default: break;
 
         }
@@ -220,7 +228,7 @@ void server_handler(int sockfd)
 
 }
 
-string recv_info_from_server(int sockfd)
+string recv_data_from_server(int sockfd)
 {
     int msg_size;
 
@@ -253,7 +261,6 @@ string recv_info_from_server(int sockfd)
     }
 
     return string(buff, msg_size);
-
 }
 
 string read_file(string file_name)
@@ -278,46 +285,16 @@ string read_file(string file_name)
     o_file.assign(buffer, buffer + file_size);
 
     return o_file;
-
-//    ifstream inf;
-//    inf.open(file_name);
-//    if (!inf)
-//	{
-//		fprintf (stderr, "Can't open: %s\n", file_name);
-//		exit(1);
-//	}
-//
-//	string line;
-//	string content;
-//
-//	while (inf)
-//	{
-//        getline(inf, line);
-//        content+=line;
-//	}
-//
-//    inf.close();
-
 }
 
-void read_file_and_send(int sockfd, string file_name)
+void read_file_and_send(int sockfd, string file_to_upload)
 {
-    string data_to_send = read_file(MSG_FILE);
+    string data_to_send = read_file(file_to_upload);
 
-    int data_size = data_to_send.size();
-
-    int bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
-
-    bytesSend = sendall(sockfd, data_to_send.c_str(), &data_size);
-
-    if (bytesSend == -1)
-    {
-        perror("sendall");
-        printf("Sent %d bytes because of the error!\n", data_size);
-    }
+    send_data_to_server(sockfd, data_to_send);
 }
 
-void send_info_to_server(int sockfd, string data_to_send)
+void send_data_to_server(int sockfd, string data_to_send)
 {
     int data_size = data_to_send.size();
 
