@@ -30,14 +30,55 @@ void *get_in_addr(struct sockaddr *sa);
 int sendall(int s, const char *buf, int *len);
 void log_message(string message);
 void recv_file_and_save(int new_fd);
+void recv_file_and_show(int new_fd);
 void save_file(string file_content);
 int validationInput();
-void send_msg_to_exit(int sockfd);
-void do_some_work(int sockfd);
-void show_home_dir(int sockfd);
-void navigate(int sockfd);
 void send_command(int sockfd, int cmnd);
-void recv_file_and_show(int sockfd);
+void send_info_to_client(int sockfd);
+
+void send_msg_to_exit(int sockfd)
+{
+    send_command(sockfd, 1);
+}
+
+void show_home_dir(int sockfd)
+{
+    send_command(sockfd, 2);
+    recv_file_and_show(sockfd);
+}
+
+void show_cur_dir_name(int sockfd)
+{
+    send_command(sockfd, 3);
+    recv_file_and_show(sockfd);
+}
+
+void change_dir_to(int sockfd)
+{
+    send_command(sockfd, 4);
+    send_info_to_client(sockfd);
+}
+
+void show_cur_dir_content(int sockfd)
+{
+    send_command(sockfd, 5);
+    recv_file_and_show(sockfd);
+}
+
+void show_file_detail_info(int sockfd)
+{
+    send_command(sockfd, 6);
+    send_info_to_client(sockfd);
+    recv_file_and_show(sockfd);
+}
+
+void delete_file(int sockfd)
+{
+    send_command(sockfd, 7);
+    send_info_to_client(sockfd);
+}
+
+
 
 enum COMMANDS
 {
@@ -46,37 +87,55 @@ enum COMMANDS
     GET_FILE,
 };
 
+const char* help_str = "case 1: Exit programm\n"
+                        "case 2: show_home_dir\n"
+                        "case 3: show_cur_dir_name\n"
+                        "case 4: change_dir_to\n"
+                        "case 5: show_cur_dir_content\n"
+                        "case 6: show_file_detail_info\n"
+                        "case 7: delete_file\n";
+
 
 void client_handler(int sockfd)
 {
     while(1)
     {
-        printf("Enter command> ");
-        int comnd = validationInput();
+        printf("%s\n", help_str);
+        show_cur_dir_name(sockfd);
+        printf("$");
+        int cmnd = validationInput();
 
-        switch(comnd)
+        switch(cmnd)
         {
             case 1:
             {
-                printf("Exit msg\n"); send_msg_to_exit(sockfd); exit(0); break;
+                printf("Exit programm\n"); send_msg_to_exit(sockfd); exit(0);
             }
             case 2:
             {
-                printf("Show dir msg\n"); show_home_dir(sockfd); break;
+                show_home_dir(sockfd); break;
             }
             case 3:
             {
-                printf("Recv file msg\n"); recv_file_and_save(sockfd); break;
+                show_cur_dir_name(sockfd); break;
             }
             case 4:
             {
-                printf("Do some work msg\n"); do_some_work(sockfd); break;
+                change_dir_to(sockfd); break;
             }
             case 5:
             {
-                printf("Getting a file from remote pc\n"); navigate(sockfd); break;
+                show_cur_dir_content(sockfd); break;
             }
-            default: exit(0);
+            case 6:
+            {
+                show_file_detail_info(sockfd); break;
+            }
+            case 7:
+            {
+                delete_file(sockfd); break;
+            }
+            default: break;
 
         }
 
@@ -84,20 +143,11 @@ void client_handler(int sockfd)
 
 }
 
-void navigate(int sockfd)
-{
-    send_command(sockfd, 5);
-
-    recv_file_and_show(sockfd);
-
-//    recv_file_and_save(sockfd);
-
-}
-
 
 void send_command(int sockfd, int cmnd)
 {
     int bytesSend = send(sockfd, reinterpret_cast<char*>(&cmnd), sizeof(int), 0);
+
     if (bytesSend == -1)
     {
         perror("send");
@@ -109,25 +159,25 @@ void send_command(int sockfd, int cmnd)
     }
 }
 
-void send_msg_to_exit(int sockfd)
+void send_info_to_client(int sockfd)
 {
-    send_command(sockfd, 1);
+    string msg;
+    getline(cin, msg);
+
+    int data_size = msg.size();
+
+    int bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
+
+    bytesSend = sendall(sockfd, msg.c_str(), &data_size);
+
+    if (bytesSend == -1)
+    {
+        perror("sendall");
+        printf("Sent %d bytes because of the error!\n", data_size);
+    }
+
 
 }
-
-void show_home_dir(int sockfd)
-{
-    send_command(sockfd, 2);
-
-    recv_file_and_save(sockfd);
-}
-
-
-void do_some_work(int sockfd)
-{
-    send_command(sockfd, 4);
-}
-
 
 string generate_file_name()
 {
@@ -209,8 +259,6 @@ void recv_file_and_save(int sockfd)
 
 void recv_file_and_show(int sockfd)
 {
-    send_command(sockfd, 3);
-
     int msg_size;
 
     int bytesRecv = recv(sockfd, &msg_size, sizeof(int), 0);
@@ -241,7 +289,9 @@ void recv_file_and_show(int sockfd)
         exit(EXIT_FAILURE);
     }
 
-    cout<<string(buff, msg_size)<<endl;
+    string info_to_show(buff, msg_size);
+//    info_to_show.erase(info_to_show.size(), 1);
+    cout<<info_to_show<<endl;
 }
 
 int main(int argc, char* argv[])

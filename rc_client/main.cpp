@@ -32,19 +32,20 @@ enum COMMANDS
 
 void read_file_and_send(int sockfd, string file_name);
 string read_file(string file_name);
+void send_info_to_server(int sockfd, string data_to_send);
+string recv_info_from_server(int sockfd);
 int sendall(int sockfd, const char *buf, int *len);
 void *get_in_addr(struct sockaddr *sa);
-void skan_dir_and_send(int sockfd);
-void navigate(int sockfd);
 
-void show_home_dir()
+
+void show_home_dir(int sockfd)
 {
     printf("show_home_dir\n");
 
     DIR *dir;
     struct dirent *entry;
 
-    dir = opendir (getenv("HOME")); //получаем имя домашнего каталога/директории через переменную окружения
+    dir = opendir (getenv("HOME"));
 
     if (dir == NULL)
     {
@@ -54,29 +55,23 @@ void show_home_dir()
 
     string data_to_send = "Catalogues info:\n";
 
-    while ((entry = readdir (dir)) != NULL) //получаем содержимое каталога/директории
+    while ((entry = readdir (dir)) != NULL)
     {
         string temp = entry->d_name;
         if(temp[0] == '.') continue;
 
         data_to_send.append(entry->d_name).append("\n");
-//        printf ("%s\n", entry->d_name;
     }
 
     cout<<data_to_send<<endl;
+
+    send_info_to_server(sockfd, data_to_send);
 }
 
-void show_cur_dir_name()
+void show_cur_dir_name(int sockfd)
 {
-    printf("show_cur_dir\n");
-
     int buf_size = 1024;
-    char * buf;
-    if (buf == NULL)
-    {
-        fprintf (stderr, "buf is NULL\n");
-        return;
-    }
+    char *buf;
 
     buf = getcwd (NULL, buf_size);
 
@@ -86,37 +81,32 @@ void show_cur_dir_name()
         return;
     }
 
-    printf ("Current directory: %s\n", buf);
+    send_info_to_server(sockfd, buf);
+
     free (buf);
 
 }
 
-void change_dir_to()
+void change_dir_to(int sockfd)
 {
-    printf("change_dir_to\n");
+    string data = recv_info_from_server(sockfd);
 
-    string new_dir;
-    getline(cin, new_dir);
-
-    if (chdir (new_dir.c_str()) == -1)
+    if (chdir(data.c_str()) == -1)
     {
         fprintf (stderr, "chdir() error\n");
         return;
     }
 }
 
-void show_cur_dir_content()
+void show_cur_dir_content(int sockfd)
 {
-    DIR * dir;
+    DIR *dir;
     struct dirent * entry;
-    //
+
     int buf_size = 1024;
-    char * buf;
-    if (buf == NULL)
-    {
-        fprintf (stderr, "buf is NULL\n");
-        return;
-    }
+    char *buf;
+
+    string data_to_send;
 
     buf = getcwd (NULL, buf_size);
 
@@ -125,9 +115,6 @@ void show_cur_dir_content()
         fprintf (stderr, "getcwd() error\n");
         return;
     }
-
-    printf ("Current directory: %s\n", buf);
-    printf ("Basename: %s\n", basename (buf));
 
     dir = opendir(buf);
 
@@ -137,49 +124,53 @@ void show_cur_dir_content()
         return;
     }
 
-    printf ("Current directory contents: %s\n", buf);
-
     while ((entry = readdir (dir)) != NULL)
-        printf ("%s\n", entry->d_name);
+    {
+        string temp = entry->d_name;
+        if(temp[0] == '.') continue;
+        data_to_send.append(temp).append("\n");
+    }
+
+    send_info_to_server(sockfd, data_to_send);
 
     closedir (dir);
     free (buf);
 
 }
 
-void show_file_detail_info()
+void show_file_detail_info(int sockfd)
 {
     struct stat st;
 
-    string new_dir;
-    getline(cin, new_dir);
+    string data = recv_info_from_server(sockfd);
 
-    if (stat (new_dir.c_str(), &st) == -1)
+    if (stat (data.c_str(), &st) == -1)
     {
         fprintf (stderr, "stat() error\n");
         return;
     }
 
-    printf ("FILE:\t\t%s\n", new_dir.c_str());
-    printf ("UID:\t\t%d\n", (int) st.st_uid);
-    printf ("GID:\t\t%d\n", (int) st.st_gid);
-    printf ("SIZE:\t\t%ld\n", (long int) st.st_size);
-    printf ("AT:\t\t%s", ctime (&st.st_atime));
-    printf ("MT:\t\t%s", ctime (&st.st_mtime));
+    string data_to_send;
+    data_to_send.append("FILE:\t\t").append(data).append("\n")
+    .append("UID:\t\t").append( to_string((int)st.st_uid)).append("\n")
+    .append("GID:\t\t").append(to_string((int) st.st_gid)).append("\n")
+    .append("SIZE:\t\t").append(to_string((long int) st.st_size)).append(" bytes\n")
+    .append("AT:\t\t").append(ctime (&st.st_atime))
+    .append("MT:\t\t").append(ctime (&st.st_mtime)).append("\n");
+
+    send_info_to_server(sockfd, data_to_send);
 
 }
 
-void delete_file()
+void delete_file(int sockfd)
 {
-    string file_to_delete;
-    getline(cin, file_to_delete);
+    string data = recv_info_from_server(sockfd);
 
-    if (unlink (file_to_delete.c_str()) == -1)
+    if (unlink (data.c_str()) == -1)
     {
-        fprintf (stderr, "Cannot unlink file (%s)\n", file_to_delete.c_str());
+        fprintf (stderr, "Cannot unlink file (%s)\n", data.c_str());
         return;
     }
-
 
 }
 
@@ -195,77 +186,73 @@ void server_handler(int sockfd)
         {
             case 1:
             {
-                printf("Exit msg\n"); exit(0);
+                printf("Exit programm\n"); exit(0); break;
             }
             case 2:
             {
-                printf("Show dir msg\n"); skan_dir_and_send(sockfd); break;
+                show_home_dir(sockfd); break;
             }
             case 3:
             {
-                printf("Send file msg\n"); read_file_and_send(sockfd, MSG_FILE); break;
+                show_cur_dir_name(sockfd); break;
             }
             case 4:
             {
-                printf("Doing some work\n"); break;
+                change_dir_to(sockfd); break;
             }
             case 5:
             {
-                printf("Navigating from remote pc\n"); navigate(sockfd); break;
+                show_cur_dir_content(sockfd); break;
             }
-            default : exit(0);
+            case 6:
+            {
+                show_file_detail_info(sockfd); break;
+            }
+            case 7:
+            {
+                delete_file(sockfd); break;
+            }
+            default: break;
+
         }
 
     }
 
 }
 
-void navigate(int sockfd)
+string recv_info_from_server(int sockfd)
 {
-    skan_dir_and_send(sockfd);
+    int msg_size;
 
-}
+    int bytesRecv = recv(sockfd, &msg_size, sizeof(int), 0);
 
-void skan_dir_and_send(int sockfd)
-{
-    DIR *dir;
-    struct dirent *entry;
-
-    dir = opendir (getenv("HOME")); //получаем имя домашнего каталога/директории через переменную окружения
-
-    if (dir == NULL)
+    if(bytesRecv == -1)
     {
-        fprintf (stderr, "opendir() error\n");
-        return;
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("recv 0");
+        exit(EXIT_FAILURE);
     }
 
-    string data_to_send = "Catalogues info:\n";
+    char* buff = new char[msg_size+1];
 
-    while ((entry = readdir (dir)) != NULL) //получаем содержимое каталога/директории
+    bytesRecv = recv(sockfd, buff, msg_size, 0);
+
+    if(bytesRecv == -1)
     {
-        string temp = entry->d_name;
-        if(temp[0] == '.') continue;
-
-        data_to_send.append(entry->d_name).append("\n");
-//        printf ("%s\n", entry->d_name;
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("recv 0");
+        exit(EXIT_FAILURE);
     }
 
-    if(closedir (dir) == -1)
-    {
-        fprintf (stderr, "closedir() error\n");
-        return;
-    }
-
-    int data_size = data_to_send.size();
-
-    int bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
-    bytesSend = sendall(sockfd, data_to_send.c_str(), &data_size);
-
-    if (bytesSend == -1)
-    {
-        perror("sendall");
-        printf("Sent %d bytes because of the error!\n", data_size);
-    }
+    return string(buff, msg_size);
 
 }
 
@@ -328,6 +315,22 @@ void read_file_and_send(int sockfd, string file_name)
         perror("sendall");
         printf("Sent %d bytes because of the error!\n", data_size);
     }
+}
+
+void send_info_to_server(int sockfd, string data_to_send)
+{
+    int data_size = data_to_send.size();
+
+    int bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
+
+    bytesSend = sendall(sockfd, data_to_send.c_str(), &data_size);
+
+    if (bytesSend == -1)
+    {
+        perror("sendall");
+        printf("Sent %d bytes because of the error!\n", data_size);
+    }
+
 }
 
 int main(int argc, char* argv[])
