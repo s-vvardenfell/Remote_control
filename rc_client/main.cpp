@@ -1,19 +1,18 @@
-#include <fstream>
-#include <iostream>
-#include "stdio.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
 #include <string.h>
-#include <netdb.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <dirent.h>
-
-#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <errno.h>
+
+#include <fstream>
+#include <iostream>
 
 using namespace std;
 
@@ -33,21 +32,22 @@ enum COMMANDS
     UPLOAD_FILE
 };
 
+ssize_t sendall(int s, const char *buf, size_t *len);
+void *get_in_addr(struct sockaddr *sa);
+
+string generate_file_name();
+
 void read_file_and_send(int sockfd, string file_name);
 string read_file(string file_name);
 void send_data_to_server(int sockfd, string data_to_send);
 string recv_data_from_server(int sockfd);
-string generate_file_name();
 void save_file_from_server(int sockfd);
 
-int sendall(int sockfd, const char *buf, int *len);
-void *get_in_addr(struct sockaddr *sa);
+
 
 
 void show_home_dir(int sockfd)
 {
-    printf("show_home_dir\n");
-
     DIR *dir;
     struct dirent *entry;
 
@@ -64,7 +64,7 @@ void show_home_dir(int sockfd)
     while ((entry = readdir (dir)) != NULL)
     {
         string temp = entry->d_name;
-        if(temp[0] == '.') continue;
+        if(temp[0] == '.') continue;//hide .name files
 
         data_to_send.append(entry->d_name).append("\n");
     }
@@ -88,7 +88,6 @@ void show_cur_dir_name(int sockfd)
     send_data_to_server(sockfd, buf);
 
     free (buf);
-
 }
 
 void change_dir_to(int sockfd)
@@ -246,9 +245,9 @@ void server_handler(int sockfd)
 
 string recv_data_from_server(int sockfd)
 {
-    int msg_size;
+    size_t msg_size;
 
-    int bytesRecv = recv(sockfd, &msg_size, sizeof(int), 0);
+    ssize_t bytesRecv = recv(sockfd, &msg_size, sizeof(size_t), 0);
 
     if(bytesRecv == -1)
     {
@@ -305,9 +304,9 @@ string read_file(string file_name)
 
 void save_file_from_server(int sockfd)
 {
-    int msg_size;
+    size_t msg_size;
 
-    int bytesRecv = recv(sockfd, &msg_size, sizeof(int), 0);
+    ssize_t bytesRecv = recv(sockfd, &msg_size, sizeof(size_t), 0);
 
     if(bytesRecv == -1)
     {
@@ -316,7 +315,7 @@ void save_file_from_server(int sockfd)
     }
     else if(bytesRecv == 0)
     {
-        perror("1st recv 0");
+        perror("recv 0");
         exit(EXIT_FAILURE);
     }
 
@@ -331,17 +330,16 @@ void save_file_from_server(int sockfd)
     }
     else if(bytesRecv == 0)
     {
-        perror("2nd recv 0");
+        perror("recv 0");
         exit(EXIT_FAILURE);
     }
-
 
     string file_name;
     file_name.assign(buff, buff+msg_size);
 
     delete[] buff;
 
-    bytesRecv = recv(sockfd, &msg_size, sizeof(int), 0);
+    bytesRecv = recv(sockfd, &msg_size, sizeof(size_t), 0);
 
     if(bytesRecv == -1)
     {
@@ -350,7 +348,7 @@ void save_file_from_server(int sockfd)
     }
     else if(bytesRecv == 0)
     {
-        perror("1st recv 0");
+        perror("1 recv 0");
         exit(EXIT_FAILURE);
     }
 
@@ -365,7 +363,7 @@ void save_file_from_server(int sockfd)
     }
     else if(bytesRecv == 0)
     {
-        perror("2nd recv 0");
+        perror("2 recv 0");
         exit(EXIT_FAILURE);
     }
 
@@ -413,9 +411,9 @@ void read_file_and_send(int sockfd, string file_to_upload)
 
 void send_data_to_server(int sockfd, string data_to_send)
 {
-    int data_size = data_to_send.size();
+    size_t data_size = data_to_send.size();
 
-    int bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
+    ssize_t bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
 
     bytesSend = sendall(sockfd, data_to_send.c_str(), &data_size);
 
@@ -491,22 +489,22 @@ void *get_in_addr(struct sockaddr *sa)
 }
 
 
-int sendall(int sockfd, const char *buf, int *len)
+ssize_t sendall(int s, const char *buf, size_t *len)
 {
-    int total = 0;
-    int bytesleft = *len;
-    int num;
+    size_t total = 0; // how much bytes was sent
+    size_t bytesleft = *len; // how much bytes left
+    ssize_t n;
 
     while(total < *len)
     {
-        num = send(sockfd, buf+total, bytesleft, 0);
-        if (num == -1) { break; }
-        total += num;
-        bytesleft -= num;
+        n = send(s, buf+total, bytesleft, 0);
+        if (n == -1) { break; }
+        total += n;
+        bytesleft -= n;
     }
 
-    *len = total;
-    return num == -1? -1 : 0;
+    *len = total;// really sent
+    return n==-1?-1:0; // -1 error, 0 success
 }
 
 

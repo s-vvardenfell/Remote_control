@@ -1,12 +1,8 @@
-#include <iostream>
-#include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
+#include <fcntl.h>
 #include <string.h>
-#include <signal.h>
-#include <syslog.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -14,7 +10,10 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <errno.h>
+
+#include <iostream>
+#include <fstream>
 
 #define PORT "3490"
 #define BACKLOG 10
@@ -41,17 +40,21 @@ enum COMMANDS
 
 void sigchld_handler(int s);
 void *get_in_addr(struct sockaddr *sa);
-int sendall(int s, const char *buf, int *len);
+ssize_t sendall(int s, const char *buf, size_t *len);
+int validationInput();
+
 void log_message(string message, int val);
+
 void recv_file_and_save(int new_fd, string file_name);
 void recv_file_and_show(int new_fd);
-void save_file(string file_content);
-int validationInput();
+
 void send_command(int sockfd, int cmnd);
 void send_string_to_client(int sockfd);
 void send_string_to_client(int sockfd, string& file_name);
 void send_file_to_client(int sockfd);
+
 string read_file(string file_name);
+void save_file(string file_name); //don't have impl yet
 
 void send_msg_to_exit(int sockfd)
 {
@@ -197,9 +200,9 @@ void send_string_to_client(int sockfd)
     string msg;
     getline(cin, msg);
 
-    int data_size = msg.size();
+    size_t data_size = msg.size();
 
-    int bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
+    ssize_t bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
 
     bytesSend = sendall(sockfd, msg.c_str(), &data_size);
 
@@ -217,9 +220,9 @@ void send_string_to_client(int sockfd, string& file_name)
 
     file_name += msg;
 
-    int data_size = msg.size();
+    size_t data_size = msg.size();
 
-    int bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
+    ssize_t bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
 
     bytesSend = sendall(sockfd, msg.c_str(), &data_size);
 
@@ -238,9 +241,9 @@ void send_file_to_client(int sockfd)
     file_path+=file_name;
 
     //отправим имя сначала
-    int data_size = file_name.size();
+    size_t data_size = file_name.size();
 
-    int bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
+    ssize_t bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
 
     bytesSend = sendall(sockfd, file_name.c_str(), &data_size);
 
@@ -255,7 +258,7 @@ void send_file_to_client(int sockfd)
 
     data_size = file_data.size();
 
-    bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
+    bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
 
     bytesSend = sendall(sockfd, file_data.c_str(), &data_size);
 
@@ -303,28 +306,11 @@ string generate_file_name()
     return file_name;
 }
 
-void save_file(char* file_content, int msg_size)
-{
-    string file_name = generate_file_name();
-
-    ofstream outf;
-    outf.open(file_name);
-    if (!outf)
-	{
-		fprintf (stderr, "Can't open: %s\n", file_name);
-		return;
-	}
-
-	outf<<file_content;
-
-	outf.close();
-}
-
 void recv_file_and_save(int sockfd, string file_name)
 {
-    int msg_size;
+    size_t msg_size;
 
-    int bytesRecv = recv(sockfd, &msg_size, sizeof(int), 0);
+    ssize_t bytesRecv = recv(sockfd, &msg_size, sizeof(size_t), 0);
 
     if(bytesRecv == -1)
     {
@@ -376,9 +362,9 @@ void recv_file_and_save(int sockfd, string file_name)
 
 void recv_file_and_show(int sockfd)
 {
-    int msg_size;
+    size_t msg_size;
 
-    int bytesRecv = recv(sockfd, &msg_size, sizeof(int), 0);
+    ssize_t bytesRecv = recv(sockfd, &msg_size, sizeof(size_t), 0);
 
     if(bytesRecv == -1)
     {
@@ -570,11 +556,11 @@ void *get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int sendall(int s, const char *buf, int *len)
+ssize_t sendall(int s, const char *buf, size_t *len)
 {
-    int total = 0; // how much bytes was sent
-    int bytesleft = *len; // how much bytes left
-    int n;
+    size_t total = 0; // how much bytes was sent
+    size_t bytesleft = *len; // how much bytes left
+    ssize_t n;
 
     while(total < *len)
     {
@@ -588,7 +574,7 @@ int sendall(int s, const char *buf, int *len)
     return n==-1?-1:0; // -1 error, 0 success
 }
 
-void log_message(string message, int val)
+void log_message(string message, ssize_t val)
 {
     ofstream outf;
     outf.open(LOG_FILE, ios::app);
