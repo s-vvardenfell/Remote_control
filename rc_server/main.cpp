@@ -38,16 +38,18 @@ enum COMMANDS
     UPLOAD_FILE
 };
 
+
 void sigchld_handler(int s);
 void *get_in_addr(struct sockaddr *sa);
 int sendall(int s, const char *buf, int *len);
 void log_message(string message, int val);
-void recv_file_and_save(int new_fd);
+void recv_file_and_save(int new_fd, string file_name);
 void recv_file_and_show(int new_fd);
 void save_file(string file_content);
 int validationInput();
 void send_command(int sockfd, int cmnd);
 void send_string_to_client(int sockfd);
+void send_string_to_client(int sockfd, string& file_name);
 void send_file_to_client(int sockfd);
 string read_file(string file_name);
 
@@ -96,8 +98,9 @@ void delete_file(int sockfd)
 void download_file(int sockfd)
 {
     send_command(sockfd, 8);
-    send_string_to_client(sockfd);
-    recv_file_and_save(sockfd);
+    string file_name = SERV_DIR;
+    send_string_to_client(sockfd, file_name);
+    recv_file_and_save(sockfd, file_name);
 }
 
 void upload_file(int sockfd)
@@ -107,7 +110,7 @@ void upload_file(int sockfd)
 }
 
 
-const char* help_str = " case 1: Exit programm\n"
+const char* help_str = "case 1: Exit programm\n"
                         "case 2: show_home_dir\n"
                         "case 3: show_cur_dir_name\n"
                         "case 4: change_dir_to\n"
@@ -205,8 +208,26 @@ void send_string_to_client(int sockfd)
         perror("sendall");
         printf("Sent %d bytes because of the error!\n", data_size);
     }
+}
 
+void send_string_to_client(int sockfd, string& file_name)
+{
+    string msg;
+    getline(cin, msg);
 
+    file_name += msg;
+
+    int data_size = msg.size();
+
+    int bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
+
+    bytesSend = sendall(sockfd, msg.c_str(), &data_size);
+
+    if (bytesSend == -1)
+    {
+        perror("sendall");
+        printf("Sent %d bytes because of the error!\n", data_size);
+    }
 }
 
 void send_file_to_client(int sockfd)
@@ -216,11 +237,25 @@ void send_file_to_client(int sockfd)
 
     file_path+=file_name;
 
-    file_data = read_file(file_path);
-
-    int data_size = file_data.size();
+    //отправим имя сначала
+    int data_size = file_name.size();
 
     int bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
+
+    bytesSend = sendall(sockfd, file_name.c_str(), &data_size);
+
+    if (bytesSend == -1)
+    {
+        perror("sendall");
+        printf("Sent %d bytes because of the error!\n", data_size);
+    }
+
+    //отправим данные
+    file_data = read_file(file_path);
+
+    data_size = file_data.size();
+
+    bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
 
     bytesSend = sendall(sockfd, file_data.c_str(), &data_size);
 
@@ -285,7 +320,7 @@ void save_file(char* file_content, int msg_size)
 	outf.close();
 }
 
-void recv_file_and_save(int sockfd)
+void recv_file_and_save(int sockfd, string file_name)
 {
     int msg_size;
 
@@ -317,7 +352,7 @@ void recv_file_and_save(int sockfd)
         exit(EXIT_FAILURE);
     }
 
-    string file_name = generate_file_name();
+//    string file_name = generate_file_name();
 
     string data_file;
 

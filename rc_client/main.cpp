@@ -335,7 +335,39 @@ void save_file_from_server(int sockfd)
         exit(EXIT_FAILURE);
     }
 
-    string file_name = generate_file_name();
+
+    string file_name;
+    file_name.assign(buff, buff+msg_size);
+
+    delete[] buff;
+
+    bytesRecv = recv(sockfd, &msg_size, sizeof(int), 0);
+
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("1st recv 0");
+        exit(EXIT_FAILURE);
+    }
+
+    buff = new char[msg_size+1];
+
+    bytesRecv = recv(sockfd, buff, msg_size, 0);
+
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("2nd recv 0");
+        exit(EXIT_FAILURE);
+    }
 
     string data_file;
 
@@ -353,6 +385,8 @@ void save_file_from_server(int sockfd)
     ofs<<data_file;
 
     ofs.close();
+
+    delete[] buff;
 
 }
 
