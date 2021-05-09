@@ -25,6 +25,19 @@
 
 using namespace std;
 
+enum COMMANDS
+{
+    EXIT = 111,
+    SHOW_HOME_DIR,
+    SHOW_CURR_DIR_NAME,
+    CHANGE_DIR,
+    SHOW_CUR_DIR_CONT,
+    SHOW_FILE_DETAIL_INFO,
+    DELETE_FILE,
+    DOWNLOAD_FILE,
+    UPLOAD_FILE
+};
+
 void sigchld_handler(int s);
 void *get_in_addr(struct sockaddr *sa);
 int sendall(int s, const char *buf, int *len);
@@ -34,7 +47,9 @@ void recv_file_and_show(int new_fd);
 void save_file(string file_content);
 int validationInput();
 void send_command(int sockfd, int cmnd);
-void send_info_to_client(int sockfd);
+void send_string_to_client(int sockfd);
+void send_file_to_client(int sockfd);
+string read_file(string file_name);
 
 void send_msg_to_exit(int sockfd)
 {
@@ -56,7 +71,7 @@ void show_cur_dir_name(int sockfd)
 void change_dir_to(int sockfd)
 {
     send_command(sockfd, 4);
-    send_info_to_client(sockfd);
+    send_string_to_client(sockfd);
 }
 
 void show_cur_dir_content(int sockfd)
@@ -68,40 +83,39 @@ void show_cur_dir_content(int sockfd)
 void show_file_detail_info(int sockfd)
 {
     send_command(sockfd, 6);
-    send_info_to_client(sockfd);
+    send_string_to_client(sockfd);
     recv_file_and_show(sockfd);
 }
 
 void delete_file(int sockfd)
 {
     send_command(sockfd, 7);
-    send_info_to_client(sockfd);
+    send_string_to_client(sockfd);
 }
 
 void download_file(int sockfd)
 {
     send_command(sockfd, 8);
-    send_info_to_client(sockfd);
+    send_string_to_client(sockfd);
     recv_file_and_save(sockfd);
 }
 
-
-
-enum COMMANDS
+void upload_file(int sockfd)
 {
-    EXIT = 111,
-    SHOW_DIR,
-    GET_FILE,
-};
+    send_command(sockfd, 9);
+    send_file_to_client(sockfd);
+}
 
-const char* help_str = "case 1: Exit programm\n"
+
+const char* help_str = " case 1: Exit programm\n"
                         "case 2: show_home_dir\n"
                         "case 3: show_cur_dir_name\n"
                         "case 4: change_dir_to\n"
                         "case 5: show_cur_dir_content\n"
                         "case 6: show_file_detail_info\n"
                         "case 7: delete_file\n"
-                        "case 8: download_file\n";
+                        "case 8: download_file\n"
+                        "case 9: upload_file\n";
 
 
 void client_handler(int sockfd)
@@ -117,7 +131,7 @@ void client_handler(int sockfd)
         {
             case 1:
             {
-                printf("Exit programm\n"); send_msg_to_exit(sockfd); exit(0);
+                printf("Exiting programm\n"); send_msg_to_exit(sockfd); exit(0);
             }
             case 2:
             {
@@ -147,6 +161,10 @@ void client_handler(int sockfd)
             {
                 download_file(sockfd); break;
             }
+            case 9:
+            {
+                upload_file(sockfd); break;
+            }
             default: break;
 
         }
@@ -171,7 +189,7 @@ void send_command(int sockfd, int cmnd)
     }
 }
 
-void send_info_to_client(int sockfd)
+void send_string_to_client(int sockfd)
 {
     string msg;
     getline(cin, msg);
@@ -191,6 +209,52 @@ void send_info_to_client(int sockfd)
 
 }
 
+void send_file_to_client(int sockfd)
+{
+    string file_name, file_data, file_path = SERV_DIR;
+    getline(cin, file_name);
+
+    file_path+=file_name;
+
+    file_data = read_file(file_path);
+
+    int data_size = file_data.size();
+
+    int bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
+
+    bytesSend = sendall(sockfd, file_data.c_str(), &data_size);
+
+    if (bytesSend == -1)
+    {
+        perror("sendall");
+        printf("Sent %d bytes because of the error!\n", data_size);
+    }
+}
+
+string read_file(string file_name)
+{
+    string o_file;
+
+    ifstream fin(file_name, ios::binary);
+
+    if(!fin.is_open())
+    {
+        printf("Cannot read file");
+        return "";
+    }
+
+    size_t file_size = fin.seekg(0, ios::end).tellg();
+    fin.seekg(0);
+    char * buffer = new char[file_size];
+
+    fin.read(buffer, file_size);
+    fin.close();
+
+    o_file.assign(buffer, buffer + file_size);
+
+    return o_file;
+}
+
 string generate_file_name()
 {
     string file_name = SERV_DIR;
@@ -202,7 +266,6 @@ string generate_file_name()
     file_name.erase(file_name.size()-1, 1);
 
     return file_name;
-
 }
 
 void save_file(char* file_content, int msg_size)

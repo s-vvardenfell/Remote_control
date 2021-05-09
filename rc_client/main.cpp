@@ -17,21 +17,28 @@
 
 using namespace std;
 
+#define PORT "3490"
+#define LOG_FILE "/home/chaginsergey/Downloads/Server_files/log_file.log"
+
 enum COMMANDS
 {
     EXIT = 111,
-    SHOW_DIR,
-    GET_FILE,
+    SHOW_HOME_DIR,
+    SHOW_CURR_DIR_NAME,
+    CHANGE_DIR,
+    SHOW_CUR_DIR_CONT,
+    SHOW_FILE_DETAIL_INFO,
+    DELETE_FILE,
+    DOWNLOAD_FILE,
+    UPLOAD_FILE
 };
-
-#define PORT "3490"
-
-#define LOG_FILE "/home/chaginsergey/Downloads/Server_files/log_file.log"
 
 void read_file_and_send(int sockfd, string file_name);
 string read_file(string file_name);
 void send_data_to_server(int sockfd, string data_to_send);
 string recv_data_from_server(int sockfd);
+string generate_file_name();
+void save_file_from_server(int sockfd);
 
 int sendall(int sockfd, const char *buf, int *len);
 void *get_in_addr(struct sockaddr *sa);
@@ -178,6 +185,11 @@ void upload_file(int sockfd)
     read_file_and_send(sockfd, file_to_upload);
 }
 
+void download_file(int sockfd)
+{
+    save_file_from_server(sockfd);
+}
+
 void server_handler(int sockfd)
 {
     int cmnd=0;
@@ -219,6 +231,10 @@ void server_handler(int sockfd)
             case 8:
             {
                 upload_file(sockfd); break;
+            }
+            case 9:
+            {
+                download_file(sockfd); break;
             }
             default: break;
 
@@ -285,6 +301,73 @@ string read_file(string file_name)
     o_file.assign(buffer, buffer + file_size);
 
     return o_file;
+}
+
+void save_file_from_server(int sockfd)
+{
+    int msg_size;
+
+    int bytesRecv = recv(sockfd, &msg_size, sizeof(int), 0);
+
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("1st recv 0");
+        exit(EXIT_FAILURE);
+    }
+
+    char* buff = new char[msg_size+1];
+
+    bytesRecv = recv(sockfd, buff, msg_size, 0);
+
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("2nd recv 0");
+        exit(EXIT_FAILURE);
+    }
+
+    string file_name = generate_file_name();
+
+    string data_file;
+
+    data_file.assign(buff, buff+msg_size);
+
+    ofstream ofs;
+    ofs.open(file_name);
+
+    if(!ofs.is_open())
+    {
+        printf("Cannot write file");
+        return ;
+    }
+
+    ofs<<data_file;
+
+    ofs.close();
+
+}
+
+string generate_file_name()
+{
+    string file_name;
+
+    time_t now = time(0);
+    char* dt = ctime(&now);
+
+    file_name.append(dt);
+    file_name.erase(file_name.size()-1, 1);
+
+    return file_name;
+
 }
 
 void read_file_and_send(int sockfd, string file_to_upload)
