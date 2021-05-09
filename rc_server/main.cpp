@@ -533,8 +533,6 @@ int main(int argc, char* argv[])
 
 }
 
-
-
 void sigchld_handler(int s)
 {
 	(void)s;
