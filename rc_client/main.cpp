@@ -46,7 +46,7 @@ void save_file_from_server(int sockfd);
 
 
 
-void show_home_dir(int sockfd)
+void show_home_dir_content(int sockfd)
 {
     DIR *dir;
     struct dirent *entry;
@@ -205,7 +205,7 @@ void server_handler(int sockfd)
             }
             case 2:
             {
-                show_home_dir(sockfd); break;
+                show_home_dir_content(sockfd); break;
             }
             case 3:
             {
@@ -275,7 +275,10 @@ string recv_data_from_server(int sockfd)
         exit(EXIT_FAILURE);
     }
 
-    return string(buff, msg_size);
+    string data(buff, msg_size);
+    delete[] buff;
+
+    return data;
 }
 
 string read_file(string file_name)
@@ -292,12 +295,13 @@ string read_file(string file_name)
 
     size_t file_size = fin.seekg(0, ios::end).tellg();
     fin.seekg(0);
-    char * buffer = new char[file_size];
+    char * buff = new char[file_size];
 
-    fin.read(buffer, file_size);
+    fin.read(buff, file_size);
     fin.close();
 
-    o_file.assign(buffer, buffer + file_size);
+    o_file.assign(buff, buff + file_size);
+    delete[] buff;
 
     return o_file;
 }
@@ -352,9 +356,9 @@ void save_file_from_server(int sockfd)
         exit(EXIT_FAILURE);
     }
 
-    buff = new char[msg_size+1];
+    char *buff2 = new char[msg_size+1];
 
-    bytesRecv = recv(sockfd, buff, msg_size, 0);
+    bytesRecv = recv(sockfd, buff2, msg_size, 0);
 
     if(bytesRecv == -1)
     {
@@ -369,7 +373,7 @@ void save_file_from_server(int sockfd)
 
     string data_file;
 
-    data_file.assign(buff, buff+msg_size);
+    data_file.assign(buff2, buff2+msg_size);
 
     ofstream ofs;
     ofs.open(file_name);
@@ -384,7 +388,7 @@ void save_file_from_server(int sockfd)
 
     ofs.close();
 
-    delete[] buff;
+    delete[] buff2;
 
 }
 

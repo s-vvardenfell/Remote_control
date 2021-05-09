@@ -61,7 +61,7 @@ void send_msg_to_exit(int sockfd)
     send_command(sockfd, 1);
 }
 
-void show_home_dir(int sockfd)
+void show_home_dir_content(int sockfd)
 {
     send_command(sockfd, 2);
     recv_file_and_show(sockfd);
@@ -114,7 +114,7 @@ void upload_file(int sockfd)
 
 
 const char* help_str = "case 1: Exit programm\n"
-                        "case 2: show_home_dir\n"
+                        "case 2: show_home_dir_content\n"
                         "case 3: show_cur_dir_name\n"
                         "case 4: change_dir_to\n"
                         "case 5: show_cur_dir_content\n"
@@ -141,7 +141,7 @@ void client_handler(int sockfd)
             }
             case 2:
             {
-                show_home_dir(sockfd); break;
+                show_home_dir_content(sockfd); break;
             }
             case 3:
             {
@@ -178,7 +178,6 @@ void client_handler(int sockfd)
     }
 
 }
-
 
 void send_command(int sockfd, int cmnd)
 {
@@ -290,6 +289,7 @@ string read_file(string file_name)
 
     o_file.assign(buffer, buffer + file_size);
 
+    delete[] buffer;
     return o_file;
 }
 
@@ -357,7 +357,7 @@ void recv_file_and_save(int sockfd, string file_name)
 //    ofs.write(buff, msg_size);
 
     ofs.close();
-
+    delete[] buff;
 }
 
 void recv_file_and_show(int sockfd)
