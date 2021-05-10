@@ -45,10 +45,13 @@ public:
 
     void start();
     void stop();
-    void handleNewConn();
-    void handleThisConn();
+//    void handleNewConn();
+//    void handleThisConn();
 
     void client_handler(int sockfd);
+
+protected:
+
     void send_command(int sockfd, int cmnd);
 
     void send_msg_to_exit(int sockfd); //1
@@ -80,7 +83,7 @@ public:
                         "case 9: upload_file\n";
 
 
-    void err_handler(); //not impl yet
+    void print_err_and_exit(const char* msg, ssize_t val, const char* func);
     void log_message(string message, ssize_t val);
     int validationInput();
 

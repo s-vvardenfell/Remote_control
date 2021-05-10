@@ -53,17 +53,17 @@ public:
     void download_file(int sockfd);
 
 
-    string recv_data_from_server(int sockfd);
-    string read_file(string file_name);
-    void save_file_from_server(int sockfd);
+
+    void downloadFileFromServer(int sockfd);
     string generate_file_name();
     void read_file_and_send(int sockfd, string file_to_upload);
-    void send_data_to_server(int sockfd, string data_to_send);
+    string read_file(string file_name);
 
+    void sendData(int sockfd, string data);
+    string recvData(int sockfd);
 
     void* get_in_addr(struct sockaddr *sa);
-    ssize_t sendall(int s, const char *buf, size_t *len);
-
+    ssize_t sendall(int sockfd, const char *buf, size_t *len);
 
 
 };

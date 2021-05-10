@@ -11,7 +11,6 @@ RcServer::RcServer()
     {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 	}
-
 }
 
 RcServer::~RcServer()
@@ -63,11 +62,11 @@ void RcServer::start()
 //	sigemptyset(&sa.sa_mask);
 //	sa.sa_flags = SA_RESTART;
 
-	if (sigaction(SIGCHLD, &sa, NULL) == -1)
-	{
-		perror("sigaction");
-		exit(1);
-	}
+//	if (sigaction(SIGCHLD, &sa, NULL) == -1)
+//	{
+//		perror("sigaction");
+//		exit(1);
+//	}
 
 	printf("server: waiting for connections...\n");
 
@@ -140,16 +139,6 @@ void RcServer::stop()
     close(sockfd);
 }
 
-void RcServer::handleNewConn()
-{
-
-}
-
-void RcServer::handleThisConn()
-{
-
-}
-
 void RcServer::send_msg_to_exit(int sockfd)
 {
     send_command(sockfd, 1);
@@ -210,15 +199,7 @@ void RcServer::send_command(int sockfd, int cmnd)
 {
     int bytesSend = send(sockfd, reinterpret_cast<char*>(&cmnd), sizeof(int), 0);
 
-    if (bytesSend == -1)
-    {
-        perror("send");
-    }
-
-    if (bytesSend == 0)
-    {
-        perror("send 0");
-    }
+    if(bytesSend <= 0) print_err_and_exit("send", bytesSend, __func__);
 }
 
 void RcServer::send_string_to_client(int sockfd)
@@ -230,12 +211,14 @@ void RcServer::send_string_to_client(int sockfd)
 
     ssize_t bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
 
+    if(bytesSend <= 0) print_err_and_exit("send", bytesSend, __func__);
+
     bytesSend = sendall(sockfd, msg.c_str(), &data_size);
 
     if (bytesSend == -1)
     {
-        perror("sendall");
         printf("Sent %d bytes because of the error!\n", data_size);
+        print_err_and_exit("sendall", bytesSend, __func__);
     }
 }
 
@@ -250,12 +233,14 @@ void RcServer::send_string_to_client(int sockfd, string& file_name)
 
     ssize_t bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
 
+    if(bytesSend <= 0) print_err_and_exit("send", bytesSend, __func__);
+
     bytesSend = sendall(sockfd, msg.c_str(), &data_size);
 
     if (bytesSend == -1)
     {
-        perror("sendall");
         printf("Sent %d bytes because of the error!\n", data_size);
+        print_err_and_exit("sendall", bytesSend, __func__);
     }
 }
 
@@ -271,12 +256,14 @@ void RcServer::send_file_to_client(int sockfd)
 
     ssize_t bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
 
+    if(bytesSend <= 0) print_err_and_exit("send", bytesSend, __func__);
+
     bytesSend = sendall(sockfd, file_name.c_str(), &data_size);
 
     if (bytesSend == -1)
     {
-        perror("sendall");
         printf("Sent %d bytes because of the error!\n", data_size);
+        print_err_and_exit("sendall", bytesSend, __func__);
     }
 
     //отправим данные
@@ -286,12 +273,14 @@ void RcServer::send_file_to_client(int sockfd)
 
     bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
 
+    if(bytesSend <= 0) print_err_and_exit("send", bytesSend, __func__);
+
     bytesSend = sendall(sockfd, file_data.c_str(), &data_size);
 
     if (bytesSend == -1)
     {
-        perror("sendall");
         printf("Sent %d bytes because of the error!\n", data_size);
+        print_err_and_exit("sendall", bytesSend, __func__);
     }
 }
 
@@ -339,31 +328,13 @@ void RcServer::recv_file_and_save(int sockfd, string file_name)
 
     ssize_t bytesRecv = recv(sockfd, &msg_size, sizeof(size_t), 0);
 
-    if(bytesRecv == -1)
-    {
-        perror("recv -1");
-        exit(EXIT_FAILURE);
-    }
-    else if(bytesRecv == 0)
-    {
-        perror("recv 0");
-        exit(EXIT_FAILURE);
-    }
+    if(bytesRecv <= 0) print_err_and_exit("recv", bytesRecv, __func__);
 
     char* buff = new char[msg_size+1];
 
     bytesRecv = recv(sockfd, buff, msg_size, 0);
 
-    if(bytesRecv == -1)
-    {
-        perror("recv -1");
-        exit(EXIT_FAILURE);
-    }
-    else if(bytesRecv == 0)
-    {
-        perror("recv 0");
-        exit(EXIT_FAILURE);
-    }
+    if(bytesRecv <= 0) print_err_and_exit("recv", bytesRecv, __func__);
 
 //    string file_name = generate_file_name();
 
@@ -393,31 +364,13 @@ void RcServer::recv_file_and_show(int sockfd)
 
     ssize_t bytesRecv = recv(sockfd, &msg_size, sizeof(size_t), 0);
 
-    if(bytesRecv == -1)
-    {
-        perror("recv -1");
-        exit(EXIT_FAILURE);
-    }
-    else if(bytesRecv == 0)
-    {
-        perror("recv 0");
-        exit(EXIT_FAILURE);
-    }
+    if(bytesRecv <= 0) print_err_and_exit("recv", bytesRecv, __func__);
 
     char* buff = new char[msg_size+1];
 
     bytesRecv = recv(sockfd, buff, msg_size, 0);
 
-    if(bytesRecv == -1)
-    {
-        perror("recv -1");
-        exit(EXIT_FAILURE);
-    }
-    else if(bytesRecv == 0)
-    {
-        perror("recv 0");
-        exit(EXIT_FAILURE);
-    }
+    if(bytesRecv <= 0) print_err_and_exit("recv", bytesRecv, __func__);
 
     string info_to_show(buff, msg_size);
     info_to_show.erase(info_to_show.size(), 1);
@@ -440,6 +393,28 @@ ssize_t RcServer::sendall(int sockfd, const char *buf, size_t *len)
 
     *len = total;// really sent
     return n==-1?-1:0; // -1 error, 0 success
+}
+
+
+//void sigchld_handler(int s)
+//{
+//	(void)s;
+//
+//	int saved_errno = errno;
+//
+//	while(waitpid(-1, NULL, WNOHANG) > 0);
+//
+//	errno = saved_errno;
+//}
+
+//получаем sockaddr, IPv4 или IPv6:
+void * RcServer::get_in_addr(struct sockaddr *sa)
+{
+	if (sa->sa_family == AF_INET) {
+		return &(((struct sockaddr_in*)sa)->sin_addr);
+	}
+
+	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
 void RcServer::log_message(string message, ssize_t val)
@@ -479,7 +454,7 @@ void RcServer::client_handler(int sockfd)
 {
     while(1)
     {
-        printf("%s\n", help_str);
+//        printf("%s\n", help_str);
         show_cur_dir_name(sockfd);
         printf("$");
         int cmnd = validationInput();
@@ -522,6 +497,10 @@ void RcServer::client_handler(int sockfd)
             {
                 upload_file(sockfd); break;
             }
+            case 0:
+            {
+                printf("%s\n", help_str); break;
+            }
             default: break;
 
         }
@@ -530,23 +509,18 @@ void RcServer::client_handler(int sockfd)
 
 }
 
-//void sigchld_handler(int s)
-//{
-//	(void)s;
-//
-//	int saved_errno = errno;
-//
-//	while(waitpid(-1, NULL, WNOHANG) > 0);
-//
-//	errno = saved_errno;
-//}
-
-//получаем sockaddr, IPv4 или IPv6:
-void * RcServer::get_in_addr(struct sockaddr *sa)
+void RcServer::print_err_and_exit(const char* msg, ssize_t val, const char* func)
 {
-	if (sa->sa_family == AF_INET) {
-		return &(((struct sockaddr_in*)sa)->sin_addr);
-	}
+    fprintf(stderr, "In function: %s\n", func);
 
-	return &(((struct sockaddr_in6*)sa)->sin6_addr);
+    if(val == -1)
+    {
+        perror(msg);
+        exit(EXIT_FAILURE);
+    }
+    else if(val == 0)
+    {
+        perror(msg);
+        exit(EXIT_FAILURE);
+    }
 }
