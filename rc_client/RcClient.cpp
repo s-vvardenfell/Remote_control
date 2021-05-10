@@ -3,16 +3,14 @@
 
 RcClient::RcClient()
 {
-    memset(&hints, 0, sizeof hints);
+	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 
     if ((rv = getaddrinfo("localhost", PORT, &hints, &servinfo)) != 0)
     {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-		return;
 	}
-
 }
 
 RcClient::~RcClient()
@@ -22,8 +20,7 @@ RcClient::~RcClient()
 
 void RcClient::start()
 {
-    // цикл по всем результатам и связывание с первым возможным
-	for(p = servinfo; p != NULL; p = p->ai_next)
+for(p = servinfo; p != NULL; p = p->ai_next)
 	{
 		if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
         {
@@ -44,18 +41,402 @@ void RcClient::start()
 	if (p == NULL)
 	{
 		fprintf(stderr, "client: failed to connect\n");
-		return;
 	}
 
     inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
 	printf("client: connecting to %s\n", s);
 
-	freeaddrinfo(servinfo); //освобождаем
+	freeaddrinfo(servinfo);
+
+    server_handler(sockfd);
 }
 
 void RcClient::stop()
 {
     close(sockfd);
+}
+
+void RcClient::show_home_dir_content(int sockfd)
+{
+    DIR *dir;
+    struct dirent *entry;
+
+    dir = opendir (getenv("HOME"));
+
+    if (dir == NULL)
+    {
+        fprintf (stderr, "opendir() error\n");
+        return;
+    }
+
+    string data_to_send = "Catalogues info:\n";
+
+    while ((entry = readdir (dir)) != NULL)
+    {
+        string temp = entry->d_name;
+        if(temp[0] == '.') continue;//hide .name files
+
+        data_to_send.append(entry->d_name).append("\n");
+    }
+
+    send_data_to_server(sockfd, data_to_send);
+}
+
+void RcClient::show_cur_dir_name(int sockfd)
+{
+    int buf_size = 1024;
+    char *buf;
+
+    buf = getcwd (NULL, buf_size);
+
+    if (buf == NULL)
+    {
+        fprintf (stderr, "getcwd() error\n");
+        return;
+    }
+
+    send_data_to_server(sockfd, buf);
+
+    free (buf);
+}
+
+void RcClient::change_dir_to(int sockfd)
+{
+    string data = recv_data_from_server(sockfd);
+
+    if (chdir(data.c_str()) == -1)
+    {
+        fprintf (stderr, "chdir() error\n");
+        return;
+    }
+}
+
+void RcClient::show_cur_dir_content(int sockfd)
+{
+    DIR *dir;
+    struct dirent * entry;
+
+    int buf_size = 1024;
+    char *buf;
+
+    string data_to_send;
+
+    buf = getcwd (NULL, buf_size);
+
+    if (buf == NULL)
+    {
+        fprintf (stderr, "getcwd() error\n");
+        return;
+    }
+
+    dir = opendir(buf);
+
+    if (dir == NULL)
+    {
+        fprintf (stderr, "opendir() error\n");
+        return;
+    }
+
+    while ((entry = readdir (dir)) != NULL)
+    {
+        string temp = entry->d_name;
+        if(temp[0] == '.') continue;
+        data_to_send.append(temp).append("\n");
+    }
+
+    send_data_to_server(sockfd, data_to_send);
+
+    closedir (dir);
+    free (buf);
+
+}
+
+void RcClient::show_file_detail_info(int sockfd)
+{
+    struct stat st;
+
+    string data = recv_data_from_server(sockfd);
+
+    if (stat (data.c_str(), &st) == -1)
+    {
+        fprintf (stderr, "stat() error\n");
+        return;
+    }
+
+    string data_to_send;
+    data_to_send.append("FILE:\t\t").append(data).append("\n")
+    .append("UID:\t\t").append( to_string((int)st.st_uid)).append("\n")
+    .append("GID:\t\t").append(to_string((int) st.st_gid)).append("\n")
+    .append("SIZE:\t\t").append(to_string((long int) st.st_size)).append(" bytes\n")
+    .append("AT:\t\t").append(ctime (&st.st_atime))
+    .append("MT:\t\t").append(ctime (&st.st_mtime)).append("\n");
+
+    send_data_to_server(sockfd, data_to_send);
+
+}
+
+void RcClient::delete_file(int sockfd)
+{
+    string data = recv_data_from_server(sockfd);
+
+    if (unlink (data.c_str()) == -1)
+    {
+        fprintf (stderr, "Cannot unlink file (%s)\n", data.c_str());
+        return;
+    }
+
+}
+
+void RcClient::upload_file(int sockfd)
+{
+    string file_to_upload = recv_data_from_server(sockfd);
+
+    read_file_and_send(sockfd, file_to_upload);
+}
+
+void RcClient::download_file(int sockfd)
+{
+    save_file_from_server(sockfd);
+}
+
+void RcClient::server_handler(int sockfd)
+{
+    int cmnd=0;
+
+    while(1)
+    {
+        int bytesRecv = recv(sockfd, &cmnd, sizeof(int), 0);
+
+        switch(cmnd)
+        {
+            case 1:
+            {
+                printf("Exit programm\n"); exit(0); break;
+            }
+            case 2:
+            {
+                show_home_dir_content(sockfd); break;
+            }
+            case 3:
+            {
+                show_cur_dir_name(sockfd); break;
+            }
+            case 4:
+            {
+                change_dir_to(sockfd); break;
+            }
+            case 5:
+            {
+                show_cur_dir_content(sockfd); break;
+            }
+            case 6:
+            {
+                show_file_detail_info(sockfd); break;
+            }
+            case 7:
+            {
+                delete_file(sockfd); break;
+            }
+            case 8:
+            {
+                upload_file(sockfd); break;
+            }
+            case 9:
+            {
+                download_file(sockfd); break;
+            }
+            default: break;
+
+        }
+
+    }
+
+}
+
+string RcClient::recv_data_from_server(int sockfd)
+{
+    size_t msg_size;
+
+    ssize_t bytesRecv = recv(sockfd, &msg_size, sizeof(size_t), 0);
+
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("recv 0");
+        exit(EXIT_FAILURE);
+    }
+
+    char* buff = new char[msg_size+1];
+
+    bytesRecv = recv(sockfd, buff, msg_size, 0);
+
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("recv 0");
+        exit(EXIT_FAILURE);
+    }
+
+    string data(buff, msg_size);
+    delete[] buff;
+
+    return data;
+}
+
+string RcClient::read_file(string file_name)
+{
+    string o_file;
+
+    ifstream fin(file_name, ios::binary);
+
+    if(!fin.is_open())
+    {
+        printf("Cannot read file");
+        return "";
+    }
+
+    size_t file_size = fin.seekg(0, ios::end).tellg();
+    fin.seekg(0);
+    char * buff = new char[file_size];
+
+    fin.read(buff, file_size);
+    fin.close();
+
+    o_file.assign(buff, buff + file_size);
+    delete[] buff;
+
+    return o_file;
+}
+
+void RcClient::save_file_from_server(int sockfd)
+{
+    size_t msg_size;
+
+    ssize_t bytesRecv = recv(sockfd, &msg_size, sizeof(size_t), 0);
+
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("recv 0");
+        exit(EXIT_FAILURE);
+    }
+
+    char* buff = new char[msg_size+1];
+
+    bytesRecv = recv(sockfd, buff, msg_size, 0);
+
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("recv 0");
+        exit(EXIT_FAILURE);
+    }
+
+    string file_name;
+    file_name.assign(buff, buff+msg_size);
+
+    delete[] buff;
+
+    bytesRecv = recv(sockfd, &msg_size, sizeof(size_t), 0);
+
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("1 recv 0");
+        exit(EXIT_FAILURE);
+    }
+
+    char *buff2 = new char[msg_size+1];
+
+    bytesRecv = recv(sockfd, buff2, msg_size, 0);
+
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("2 recv 0");
+        exit(EXIT_FAILURE);
+    }
+
+    string data_file;
+
+    data_file.assign(buff2, buff2+msg_size);
+
+    ofstream ofs;
+    ofs.open(file_name);
+
+    if(!ofs.is_open())
+    {
+        printf("Cannot write file");
+        return ;
+    }
+
+    ofs<<data_file;
+
+    ofs.close();
+
+    delete[] buff2;
+
+}
+
+string RcClient::generate_file_name()
+{
+    string file_name;
+
+    time_t now = time(0);
+    char* dt = ctime(&now);
+
+    file_name.append(dt);
+    file_name.erase(file_name.size()-1, 1);
+
+    return file_name;
+
+}
+
+void RcClient::read_file_and_send(int sockfd, string file_to_upload)
+{
+    string data_to_send = read_file(file_to_upload);
+
+    send_data_to_server(sockfd, data_to_send);
+}
+
+void RcClient::send_data_to_server(int sockfd, string data_to_send)
+{
+    size_t data_size = data_to_send.size();
+
+    ssize_t bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
+
+    bytesSend = sendall(sockfd, data_to_send.c_str(), &data_size);
+
+    if (bytesSend == -1)
+    {
+        perror("sendall");
+        printf("Sent %d bytes because of the error!\n", data_size);
+    }
+
 }
 
 //получаем sockaddr, IPv4 или IPv6:
@@ -68,63 +449,21 @@ void* RcClient::get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-//сокет, буфер и указатель на кол-во байт в буфере
-int RcClient::sendall(int sockfd, const char *buf, int *len) //функция досылающая данные
+ssize_t RcClient::sendall(int s, const char *buf, size_t *len)
 {
-    int total = 0; //сколько байт отправлено
-    int bytesleft = *len; // сколько осталось
-    int num;
+    size_t total = 0; // how much bytes was sent
+    size_t bytesleft = *len; // how much bytes left
+    ssize_t n;
 
     while(total < *len)
     {
-        num = send(sockfd, buf+total, bytesleft, 0);
-        if (num == -1) { break; }
-        total += num;
-        bytesleft -= num;
+        n = send(s, buf+total, bytesleft, 0);
+        if (n == -1) { break; }
+        total += n;
+        bytesleft -= n;
     }
 
-    *len = total; //отправлено
-    return num == -1? -1 : 0; // -1 error, 0 success
+    *len = total;// really sent
+    return n==-1?-1:0; // -1 error, 0 success
 }
 
-string RcClient::read_file(string file_name)
-{
-    ifstream inf;
-    inf.open(file_name); //открываем файл режиме чтения
-    if (!inf)
-	{
-		fprintf (stderr, "Can't open: %s\n", file_name);
-		exit(1);
-	}
-
-	string line; //временная строка
-	string content; //содержимое файла
-
-	//Получаем вектор объектов, содержащих имя, алгоритм и хэш-сумму файлов
-	while (inf)
-	{
-        getline(inf, line);
-        content+=line;
-	}
-
-    inf.close();
-
-    return content;
-}
-
-//читаем файл и отправляем на сервер
-void RcClient::read_file_and_send(string file_name)//получаем дескриптор сокета и расположение/имя файла
-{
-    string data_to_send = read_file(file_name);
-
-    int data_size = data_to_send.size();
-
-    int bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(int), 0);
-    bytesSend = sendall(sockfd, data_to_send.c_str(), &data_size);
-
-    if (bytesSend == -1)
-    {
-        perror("sendall");
-        printf("Sent %d bytes because of the error!\n", data_size);
-    }
-}
