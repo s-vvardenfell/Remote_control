@@ -52,8 +52,6 @@ public:
     void upload_file(int sockfd);
     void download_file(int sockfd);
 
-
-
     void downloadFileFromServer(int sockfd);
     string generate_file_name();
     void read_file_and_send(int sockfd, string file_to_upload);

@@ -38,6 +38,17 @@ private:
 	char addr[INET6_ADDRSTRLEN];
 	int rv;
 
+    const char* help_str = "case 1: Exit\n"
+                        "case 2: Home dir content\n"
+                        "case 3: Current dir name\n"
+                        "case 4: Channge dir to\n"
+                        "case 5: Current dir content\n"
+                        "case 6: File info\n"
+                        "case 7: Delete file\n"
+                        "case 8: Download file\n"
+                        "case 9: Upload file\n"
+                        "case 0: Print this help\n";
+
 public:
 
     RcServer();
@@ -52,7 +63,7 @@ public:
 
 protected:
 
-    void send_command(int sockfd, int cmnd);
+    void sendCommand(int sockfd, int cmnd);
 
     void send_msg_to_exit(int sockfd); //1
     void show_home_dir_content(int sockfd); //2
@@ -64,26 +75,20 @@ protected:
     void download_file(int sockfd); //8
     void upload_file(int sockfd); //9
 
-    void send_string_to_client(int sockfd);
-    void send_string_to_client(int sockfd, string& file_name);
-    void send_file_to_client(int sockfd);
+    string recvData(int sockfd);
+    void sendData(int sockfd, string data);
+
+    void recvFileAndShow(int sockfd);
+    void recvFileAndSave(int sockfd, string file_name);
+
+    void uploadFileToClient(int sockfd);
+
+    void sendStringData(int sockfd);
+    void sendStringData(int sockfd, string& file_name); //TODO: rewrite
+
     string read_file(string file_name);
     string generate_file_name();
-    void recv_file_and_save(int sockfd, string file_name);
-    void recv_file_and_show(int sockfd);
 
-    const char* help_str = "case 1: Exit programm\n"
-                        "case 2: show_home_dir_content\n"
-                        "case 3: show_cur_dir_name\n"
-                        "case 4: change_dir_to\n"
-                        "case 5: show_cur_dir_content\n"
-                        "case 6: show_file_detail_info\n"
-                        "case 7: delete_file\n"
-                        "case 8: download_file\n"
-                        "case 9: upload_file\n";
-
-
-    void print_err_and_exit(const char* msg, ssize_t val, const char* func);
     void log_message(string message, ssize_t val);
     int validationInput();
 

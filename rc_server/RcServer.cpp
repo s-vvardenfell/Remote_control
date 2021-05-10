@@ -133,6 +133,66 @@ void RcServer::start()
 
 }
 
+void RcServer::client_handler(int sockfd)
+{
+    printf("%s\n", help_str);
+
+    while(1)
+    {
+        show_cur_dir_name(sockfd);
+        printf("$");
+        int cmnd = validationInput();
+
+        switch(cmnd)
+        {
+            case 1:
+            {
+                printf("Exiting programm\n"); send_msg_to_exit(sockfd); exit(0);
+            }
+            case 2:
+            {
+                show_home_dir_content(sockfd); break;
+            }
+            case 3:
+            {
+                show_cur_dir_name(sockfd); break;
+            }
+            case 4:
+            {
+                change_dir_to(sockfd); break;
+            }
+            case 5:
+            {
+                show_cur_dir_content(sockfd); break;
+            }
+            case 6:
+            {
+                show_file_detail_info(sockfd); break;
+            }
+            case 7:
+            {
+                delete_file(sockfd); break;
+            }
+            case 8:
+            {
+                download_file(sockfd); break;
+            }
+            case 9:
+            {
+                upload_file(sockfd); break;
+            }
+            case 0:
+            {
+                printf("%s\n", help_str); break;
+            }
+            default: break;
+
+        }
+
+    }
+
+}
+
 void RcServer::stop()
 {
     close(new_fd);
@@ -141,147 +201,108 @@ void RcServer::stop()
 
 void RcServer::send_msg_to_exit(int sockfd)
 {
-    send_command(sockfd, 1);
+    sendCommand(sockfd, 1);
 }
 
 void RcServer::show_home_dir_content(int sockfd)
 {
-    send_command(sockfd, 2);
-    recv_file_and_show(sockfd);
+    sendCommand(sockfd, 2);
+    recvFileAndShow(sockfd);
 }
 
 void RcServer::show_cur_dir_name(int sockfd)
 {
-    send_command(sockfd, 3);
-    recv_file_and_show(sockfd);
+    sendCommand(sockfd, 3);
+    recvFileAndShow(sockfd);
 }
 
 void RcServer::change_dir_to(int sockfd)
 {
-    send_command(sockfd, 4);
-    send_string_to_client(sockfd);
+    sendCommand(sockfd, 4);
+    sendStringData(sockfd);
 }
 
 void RcServer::show_cur_dir_content(int sockfd)
 {
-    send_command(sockfd, 5);
-    recv_file_and_show(sockfd);
+    sendCommand(sockfd, 5);
+    recvFileAndShow(sockfd);
 }
 
 void RcServer::show_file_detail_info(int sockfd)
 {
-    send_command(sockfd, 6);
-    send_string_to_client(sockfd);
-    recv_file_and_show(sockfd);
+    sendCommand(sockfd, 6);
+    sendStringData(sockfd);
+    recvFileAndShow(sockfd);
 }
 
 void RcServer::delete_file(int sockfd)
 {
-    send_command(sockfd, 7);
-    send_string_to_client(sockfd);
+    sendCommand(sockfd, 7);
+    sendStringData(sockfd);
 }
 
 void RcServer::download_file(int sockfd)
 {
-    send_command(sockfd, 8);
+    sendCommand(sockfd, 8);
     string file_name = SERV_DIR;
-    send_string_to_client(sockfd, file_name);
-    recv_file_and_save(sockfd, file_name);
+    sendStringData(sockfd, file_name);
+    recvFileAndSave(sockfd, file_name);
 }
 
 void RcServer::upload_file(int sockfd)
 {
-    send_command(sockfd, 9);
-    send_file_to_client(sockfd);
+    sendCommand(sockfd, 9);
+    uploadFileToClient(sockfd);
 }
 
-void RcServer::send_command(int sockfd, int cmnd)
+void RcServer::sendCommand(int sockfd, int cmnd)
 {
     int bytesSend = send(sockfd, reinterpret_cast<char*>(&cmnd), sizeof(int), 0);
 
-    if(bytesSend <= 0) print_err_and_exit("send", bytesSend, __func__);
+    if(bytesSend == -1)
+    {
+        perror("send");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesSend == 0)
+    {
+        perror("send");
+        exit(EXIT_FAILURE);
+    }
 }
 
-void RcServer::send_string_to_client(int sockfd)
+void RcServer::sendStringData(int sockfd)
+{
+    string msg;
+
+    getline(cin, msg);
+
+    sendData(sockfd, msg);
+}
+
+void RcServer::sendStringData(int sockfd, string& file_name)
 {
     string msg;
     getline(cin, msg);
 
-    size_t data_size = msg.size();
+    file_name += msg; //добавляем имя к пути чтобы знать имя файла и куда сохранить в caller'е
 
-    ssize_t bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
-
-    if(bytesSend <= 0) print_err_and_exit("send", bytesSend, __func__);
-
-    bytesSend = sendall(sockfd, msg.c_str(), &data_size);
-
-    if (bytesSend == -1)
-    {
-        printf("Sent %d bytes because of the error!\n", data_size);
-        print_err_and_exit("sendall", bytesSend, __func__);
-    }
+    sendData(sockfd, msg); //посылаем клиенту имя файла для загрузки
 }
 
-void RcServer::send_string_to_client(int sockfd, string& file_name)
-{
-    string msg;
-    getline(cin, msg);
 
-    file_name += msg;
-
-    size_t data_size = msg.size();
-
-    ssize_t bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
-
-    if(bytesSend <= 0) print_err_and_exit("send", bytesSend, __func__);
-
-    bytesSend = sendall(sockfd, msg.c_str(), &data_size);
-
-    if (bytesSend == -1)
-    {
-        printf("Sent %d bytes because of the error!\n", data_size);
-        print_err_and_exit("sendall", bytesSend, __func__);
-    }
-}
-
-void RcServer::send_file_to_client(int sockfd)
+void RcServer::uploadFileToClient(int sockfd)
 {
     string file_name, file_data, file_path = SERV_DIR;
     getline(cin, file_name);
 
     file_path+=file_name;
 
-    //отправим имя сначала
-    size_t data_size = file_name.size();
+    sendData(sockfd, file_name);
 
-    ssize_t bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
-
-    if(bytesSend <= 0) print_err_and_exit("send", bytesSend, __func__);
-
-    bytesSend = sendall(sockfd, file_name.c_str(), &data_size);
-
-    if (bytesSend == -1)
-    {
-        printf("Sent %d bytes because of the error!\n", data_size);
-        print_err_and_exit("sendall", bytesSend, __func__);
-    }
-
-    //отправим данные
     file_data = read_file(file_path);
 
-    data_size = file_data.size();
-
-    bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
-
-    if(bytesSend <= 0) print_err_and_exit("send", bytesSend, __func__);
-
-    bytesSend = sendall(sockfd, file_data.c_str(), &data_size);
-
-    if (bytesSend == -1)
-    {
-        printf("Sent %d bytes because of the error!\n", data_size);
-        print_err_and_exit("sendall", bytesSend, __func__);
-    }
+    sendData(sockfd, file_data);
 }
 
 string RcServer::read_file(string file_name)
@@ -322,25 +343,9 @@ string RcServer::generate_file_name()
     return file_name;
 }
 
-void RcServer::recv_file_and_save(int sockfd, string file_name)
+void RcServer::recvFileAndSave(int sockfd, string file_name)
 {
-    size_t msg_size;
-
-    ssize_t bytesRecv = recv(sockfd, &msg_size, sizeof(size_t), 0);
-
-    if(bytesRecv <= 0) print_err_and_exit("recv", bytesRecv, __func__);
-
-    char* buff = new char[msg_size+1];
-
-    bytesRecv = recv(sockfd, buff, msg_size, 0);
-
-    if(bytesRecv <= 0) print_err_and_exit("recv", bytesRecv, __func__);
-
-//    string file_name = generate_file_name();
-
-    string data_file;
-
-    data_file.assign(buff, buff+msg_size);
+    string data_file = recvData(sockfd);
 
     ofstream ofs;
     ofs.open(file_name);
@@ -352,49 +357,85 @@ void RcServer::recv_file_and_save(int sockfd, string file_name)
     }
 
     ofs<<data_file;
-//    ofs.write(buff, msg_size);
 
     ofs.close();
-    delete[] buff;
 }
 
-void RcServer::recv_file_and_show(int sockfd)
+void RcServer::recvFileAndShow(int sockfd)
+{
+    string info_to_show = recvData(sockfd);
+
+    info_to_show.erase(info_to_show.size(), 1);
+
+    cout<<info_to_show;
+}
+
+void RcServer::sendData(int sockfd, string data)
+{
+    size_t data_size = data.size();
+
+    ssize_t bytesSend = send(sockfd, reinterpret_cast<char*>(&data_size), sizeof(size_t), 0);
+
+    if(bytesSend == -1)
+    {
+        perror("send");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesSend == 0)
+    {
+        perror("send");
+        exit(EXIT_FAILURE);
+    }
+
+    bytesSend = sendall(sockfd, data.c_str(), &data_size);
+
+    if (bytesSend == -1)
+    {
+        perror("sendall");
+        printf("Sent %d bytes because of the error!\n", data_size);
+    }
+}
+
+
+string RcServer::recvData(int sockfd)
 {
     size_t msg_size;
 
     ssize_t bytesRecv = recv(sockfd, &msg_size, sizeof(size_t), 0);
 
-    if(bytesRecv <= 0) print_err_and_exit("recv", bytesRecv, __func__);
+    if(bytesRecv == -1)
+    {
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("recv 0");
+        exit(EXIT_FAILURE);
+    }
 
     char* buff = new char[msg_size+1];
 
     bytesRecv = recv(sockfd, buff, msg_size, 0);
 
-    if(bytesRecv <= 0) print_err_and_exit("recv", bytesRecv, __func__);
-
-    string info_to_show(buff, msg_size);
-    info_to_show.erase(info_to_show.size(), 1);
-    cout<<info_to_show;
-}
-
-ssize_t RcServer::sendall(int sockfd, const char *buf, size_t *len)
-{
-    size_t total = 0; // how much bytes was sent
-    size_t bytesleft = *len; // how much bytes left
-    ssize_t n;
-
-    while(total < *len)
+    if(bytesRecv == -1)
     {
-        n = send(sockfd, buf+total, bytesleft, 0);
-        if (n == -1) { break; }
-        total += n;
-        bytesleft -= n;
+        perror("recv -1");
+        exit(EXIT_FAILURE);
+    }
+    else if(bytesRecv == 0)
+    {
+        perror("recv 0");
+        exit(EXIT_FAILURE);
     }
 
-    *len = total;// really sent
-    return n==-1?-1:0; // -1 error, 0 success
-}
+    string data;
+    data.assign(buff, msg_size);
 
+    delete[] buff;
+
+    return data;
+}
 
 //void sigchld_handler(int s)
 //{
@@ -450,77 +491,20 @@ int RcServer::validationInput()
     }
 }
 
-void RcServer::client_handler(int sockfd)
+ssize_t RcServer::sendall(int sockfd, const char *buf, size_t *len)
 {
-    while(1)
+    size_t total = 0; // how much bytes was sent
+    size_t bytesleft = *len; // how much bytes left
+    ssize_t n;
+
+    while(total < *len)
     {
-//        printf("%s\n", help_str);
-        show_cur_dir_name(sockfd);
-        printf("$");
-        int cmnd = validationInput();
-
-        switch(cmnd)
-        {
-            case 1:
-            {
-                printf("Exiting programm\n"); send_msg_to_exit(sockfd); exit(0);
-            }
-            case 2:
-            {
-                show_home_dir_content(sockfd); break;
-            }
-            case 3:
-            {
-                show_cur_dir_name(sockfd); break;
-            }
-            case 4:
-            {
-                change_dir_to(sockfd); break;
-            }
-            case 5:
-            {
-                show_cur_dir_content(sockfd); break;
-            }
-            case 6:
-            {
-                show_file_detail_info(sockfd); break;
-            }
-            case 7:
-            {
-                delete_file(sockfd); break;
-            }
-            case 8:
-            {
-                download_file(sockfd); break;
-            }
-            case 9:
-            {
-                upload_file(sockfd); break;
-            }
-            case 0:
-            {
-                printf("%s\n", help_str); break;
-            }
-            default: break;
-
-        }
-
+        n = send(sockfd, buf+total, bytesleft, 0);
+        if (n == -1) { break; }
+        total += n;
+        bytesleft -= n;
     }
 
-}
-
-void RcServer::print_err_and_exit(const char* msg, ssize_t val, const char* func)
-{
-    fprintf(stderr, "In function: %s\n", func);
-
-    if(val == -1)
-    {
-        perror(msg);
-        exit(EXIT_FAILURE);
-    }
-    else if(val == 0)
-    {
-        perror(msg);
-        exit(EXIT_FAILURE);
-    }
+    *len = total;// really sent
+    return n==-1?-1:0; // -1 error, 0 success
 }
