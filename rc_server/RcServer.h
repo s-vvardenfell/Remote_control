@@ -59,24 +59,25 @@ public:
 //    void handleNewConn();
 //    void handleThisConn();
 
-    void client_handler(int sockfd);
+    void clientHandler(int sockfd);
 
 protected:
 
     void sendCommand(int sockfd, int cmnd);
 
-    void send_msg_to_exit(int sockfd); //1
-    void show_home_dir_content(int sockfd); //2
-    void show_cur_dir_name(int sockfd); //3
-    void change_dir_to(int sockfd); //4
-    void show_cur_dir_content(int sockfd); //5
-    void show_file_detail_info(int sockfd); //6
-    void delete_file(int sockfd); //7
-    void download_file(int sockfd); //8
-    void upload_file(int sockfd); //9
+    void sendMsgToExit(int sockfd); //1
+    void showHomeDirContent(int sockfd); //2
+    void showCurrDirName(int sockfd); //3
+    void changeDirTo(int sockfd); //4
+    void showCurrDirContent(int sockfd); //5
+    void showFileInfo(int sockfd); //6
+    void deleteFile(int sockfd); //7
+    void downloadFile(int sockfd); //8
+    void uploadFile(int sockfd); //9
 
     string recvData(int sockfd);
-    void sendData(int sockfd, string data);
+    void sendData(int sockfd, string& data);
+    void sendErrorMsg(int sockfd, string& data);
 
     void recvFileAndShow(int sockfd);
     void recvFileAndSave(int sockfd, string file_name);
@@ -86,10 +87,10 @@ protected:
     void sendStringData(int sockfd);
     void sendStringData(int sockfd, string& file_name); //TODO: rewrite
 
-    string read_file(string file_name);
-    string generate_file_name();
+    string readFile(string file_name);
+    string generaneRandFileName();
 
-    void log_message(string message, ssize_t val);
+    void logMsg(string message, ssize_t val);
     int validationInput();
 
     void* get_in_addr(struct sockaddr*);

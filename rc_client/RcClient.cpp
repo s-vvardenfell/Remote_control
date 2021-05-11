@@ -56,7 +56,7 @@ void RcClient::stop()
     close(sockfd);
 }
 
-void RcClient::show_home_dir_content(int sockfd)
+void RcClient::showHomeDirContent(int sockfd)
 {
     DIR *dir;
     struct dirent *entry;
@@ -66,6 +66,7 @@ void RcClient::show_home_dir_content(int sockfd)
     if (dir == NULL)
     {
         fprintf (stderr, "opendir() error\n");
+        sendErrorMsg(sockfd, "opendir() error");
         return;
     }
 
@@ -82,7 +83,7 @@ void RcClient::show_home_dir_content(int sockfd)
     sendData(sockfd, data_to_send);
 }
 
-void RcClient::show_cur_dir_name(int sockfd)
+void RcClient::showCurrDirName(int sockfd)
 {
     int buf_size = 1024;
     char *buf;
@@ -92,26 +93,29 @@ void RcClient::show_cur_dir_name(int sockfd)
     if (buf == NULL)
     {
         fprintf (stderr, "getcwd() error\n");
+        sendErrorMsg(sockfd, "getcwd() error");
         return;
     }
 
-    sendData(sockfd, buf);
+    string data = buf;
+    sendData(sockfd, data);
 
     free (buf);
 }
 
-void RcClient::change_dir_to(int sockfd)
+void RcClient::changeDirTo(int sockfd)
 {
     string data = recvData(sockfd);
 
     if (chdir(data.c_str()) == -1)
     {
         fprintf (stderr, "chdir() error\n");
+        sendErrorMsg(sockfd, "chdir() error");
         return;
     }
 }
 
-void RcClient::show_cur_dir_content(int sockfd)
+void RcClient::showCurrDirContent(int sockfd)
 {
     DIR *dir;
     struct dirent * entry;
@@ -126,6 +130,7 @@ void RcClient::show_cur_dir_content(int sockfd)
     if (buf == NULL)
     {
         fprintf (stderr, "getcwd() error\n");
+        sendErrorMsg(sockfd, "getcwd() error");
         return;
     }
 
@@ -134,6 +139,7 @@ void RcClient::show_cur_dir_content(int sockfd)
     if (dir == NULL)
     {
         fprintf (stderr, "opendir() error\n");
+        sendErrorMsg(sockfd, "opendir() error");
         return;
     }
 
@@ -151,7 +157,7 @@ void RcClient::show_cur_dir_content(int sockfd)
 
 }
 
-void RcClient::show_file_detail_info(int sockfd)
+void RcClient::showFileInfo(int sockfd)
 {
     struct stat st;
 
@@ -160,6 +166,7 @@ void RcClient::show_file_detail_info(int sockfd)
     if (stat (data.c_str(), &st) == -1)
     {
         fprintf (stderr, "stat() error\n");
+        sendErrorMsg(sockfd, "stat() error");
         return;
     }
 
@@ -175,28 +182,24 @@ void RcClient::show_file_detail_info(int sockfd)
 
 }
 
-void RcClient::delete_file(int sockfd)
+void RcClient::deleteFile(int sockfd)
 {
     string data = recvData(sockfd);
 
     if (unlink (data.c_str()) == -1)
     {
-        fprintf (stderr, "Cannot unlink file (%s)\n", data.c_str());
+        fprintf (stderr, "unlink() error\n", data.c_str());
+        sendErrorMsg(sockfd, "unlink() error");
         return;
     }
 
 }
 
-void RcClient::upload_file(int sockfd)
+void RcClient::uploadFileToServer(int sockfd)
 {
     string file_to_upload = recvData(sockfd);
 
-    read_file_and_send(sockfd, file_to_upload);
-}
-
-void RcClient::download_file(int sockfd)
-{
-    downloadFileFromServer(sockfd);
+    readFileAndSend(sockfd, file_to_upload);
 }
 
 void RcClient::server_handler(int sockfd)
@@ -215,35 +218,35 @@ void RcClient::server_handler(int sockfd)
             }
             case 2:
             {
-                show_home_dir_content(sockfd); break;
+                showHomeDirContent(sockfd); break;
             }
             case 3:
             {
-                show_cur_dir_name(sockfd); break;
+                showCurrDirName(sockfd); break;
             }
             case 4:
             {
-                change_dir_to(sockfd); break;
+                changeDirTo(sockfd); break;
             }
             case 5:
             {
-                show_cur_dir_content(sockfd); break;
+                showCurrDirContent(sockfd); break;
             }
             case 6:
             {
-                show_file_detail_info(sockfd); break;
+                showFileInfo(sockfd); break;
             }
             case 7:
             {
-                delete_file(sockfd); break;
+                deleteFile(sockfd); break;
             }
             case 8:
             {
-                upload_file(sockfd); break;
+                uploadFileToServer(sockfd); break;
             }
             case 9:
             {
-                download_file(sockfd); break;
+                downloadFileFromServer(sockfd); break;
             }
             default: break;
 
@@ -253,7 +256,7 @@ void RcClient::server_handler(int sockfd)
 
 }
 
-string RcClient::read_file(string file_name)
+string RcClient::readFile(string file_name)
 {
     string o_file;
 
@@ -262,7 +265,7 @@ string RcClient::read_file(string file_name)
     if(!fin.is_open())
     {
         printf("Cannot read file");
-        return "";
+        return "client> Cannot read file";
     }
 
     size_t file_size = fin.seekg(0, ios::end).tellg();
@@ -291,15 +294,21 @@ void RcClient::downloadFileFromServer(int sockfd)
     if(!ofs.is_open())
     {
         printf("Cannot write file");
-        return ;
+        sendErrorMsg(sockfd, "client> Cannot write file");
+        return;
     }
 
     ofs<<data_file;
 
     ofs.close();
+
+    string msg = "client> "; //ofstream создает файл, поэтому условие всегда выполняется, даже если название файла введено неверно на сервере
+    msg+=file_name+=" downloaded successfully";
+
+    sendData(sockfd, msg);
 }
 
-string RcClient::generate_file_name()
+string RcClient::generaneRandFileName()
 {
     string file_name;
 
@@ -313,15 +322,15 @@ string RcClient::generate_file_name()
 
 }
 
-void RcClient::read_file_and_send(int sockfd, string file_to_upload)
+void RcClient::readFileAndSend(int sockfd, string file_to_upload)
 {
-    string data_to_send = read_file(file_to_upload);
+    string data_to_send = readFile(file_to_upload);
 
     sendData(sockfd, data_to_send);
 }
 
 
-void RcClient::sendData(int sockfd, string data)
+void RcClient::sendData(int sockfd, string& data)
 {
     size_t data_size = data.size();
 
@@ -386,6 +395,12 @@ string RcClient::recvData(int sockfd)
     delete[] buff;
 
     return data;
+}
+
+void RcClient::sendErrorMsg(int sockfd, string er_msg)
+{
+    er_msg+="\n";
+    sendData(sockfd, er_msg);
 }
 
 //получаем sockaddr, IPv4 или IPv6:

@@ -90,7 +90,7 @@ void RcServer::start()
 		//if not - exit
 
 
-        client_handler(new_fd);
+        clientHandler(new_fd);
 
         //handling one client so far
         /*
@@ -133,13 +133,13 @@ void RcServer::start()
 
 }
 
-void RcServer::client_handler(int sockfd)
+void RcServer::clientHandler(int sockfd)
 {
     printf("%s\n", help_str);
 
     while(1)
     {
-        show_cur_dir_name(sockfd);
+        showCurrDirName(sockfd);
         printf("$");
         int cmnd = validationInput();
 
@@ -147,39 +147,39 @@ void RcServer::client_handler(int sockfd)
         {
             case 1:
             {
-                printf("Exiting programm\n"); send_msg_to_exit(sockfd); exit(0);
+                printf("Exiting programm\n"); sendMsgToExit(sockfd); exit(0);
             }
             case 2:
             {
-                show_home_dir_content(sockfd); break;
+                showHomeDirContent(sockfd); break;
             }
             case 3:
             {
-                show_cur_dir_name(sockfd); break;
+                showCurrDirName(sockfd); break;
             }
             case 4:
             {
-                change_dir_to(sockfd); break;
+                changeDirTo(sockfd); break;
             }
             case 5:
             {
-                show_cur_dir_content(sockfd); break;
+                showCurrDirContent(sockfd); break;
             }
             case 6:
             {
-                show_file_detail_info(sockfd); break;
+                showFileInfo(sockfd); break;
             }
             case 7:
             {
-                delete_file(sockfd); break;
+                deleteFile(sockfd); break;
             }
             case 8:
             {
-                download_file(sockfd); break;
+                downloadFile(sockfd); break;
             }
             case 9:
             {
-                upload_file(sockfd); break;
+                uploadFile(sockfd); break;
             }
             case 0:
             {
@@ -199,49 +199,49 @@ void RcServer::stop()
     close(sockfd);
 }
 
-void RcServer::send_msg_to_exit(int sockfd)
+void RcServer::sendMsgToExit(int sockfd)
 {
     sendCommand(sockfd, 1);
 }
 
-void RcServer::show_home_dir_content(int sockfd)
+void RcServer::showHomeDirContent(int sockfd)
 {
     sendCommand(sockfd, 2);
     recvFileAndShow(sockfd);
 }
 
-void RcServer::show_cur_dir_name(int sockfd)
+void RcServer::showCurrDirName(int sockfd)
 {
     sendCommand(sockfd, 3);
     recvFileAndShow(sockfd);
 }
 
-void RcServer::change_dir_to(int sockfd)
+void RcServer::changeDirTo(int sockfd)
 {
     sendCommand(sockfd, 4);
     sendStringData(sockfd);
 }
 
-void RcServer::show_cur_dir_content(int sockfd)
+void RcServer::showCurrDirContent(int sockfd)
 {
     sendCommand(sockfd, 5);
     recvFileAndShow(sockfd);
 }
 
-void RcServer::show_file_detail_info(int sockfd)
+void RcServer::showFileInfo(int sockfd)
 {
     sendCommand(sockfd, 6);
     sendStringData(sockfd);
     recvFileAndShow(sockfd);
 }
 
-void RcServer::delete_file(int sockfd)
+void RcServer::deleteFile(int sockfd)
 {
     sendCommand(sockfd, 7);
     sendStringData(sockfd);
 }
 
-void RcServer::download_file(int sockfd)
+void RcServer::downloadFile(int sockfd)
 {
     sendCommand(sockfd, 8);
     string file_name = SERV_DIR;
@@ -249,7 +249,7 @@ void RcServer::download_file(int sockfd)
     recvFileAndSave(sockfd, file_name);
 }
 
-void RcServer::upload_file(int sockfd)
+void RcServer::uploadFile(int sockfd)
 {
     sendCommand(sockfd, 9);
     uploadFileToClient(sockfd);
@@ -300,12 +300,14 @@ void RcServer::uploadFileToClient(int sockfd)
 
     sendData(sockfd, file_name);
 
-    file_data = read_file(file_path);
+    file_data = readFile(file_path);
 
     sendData(sockfd, file_data);
+
+    cout<<recvData(sockfd)<<endl;//ответ от клиента загружено или нет
 }
 
-string RcServer::read_file(string file_name)
+string RcServer::readFile(string file_name)
 {
     string o_file;
 
@@ -314,7 +316,7 @@ string RcServer::read_file(string file_name)
     if(!fin.is_open())
     {
         printf("Cannot read file");
-        return "";
+        return "Cannot read file";
     }
 
     size_t file_size = fin.seekg(0, ios::end).tellg();
@@ -330,7 +332,7 @@ string RcServer::read_file(string file_name)
     return o_file;
 }
 
-string RcServer::generate_file_name()
+string RcServer::generaneRandFileName()
 {
     string file_name = SERV_DIR;
 
@@ -370,7 +372,7 @@ void RcServer::recvFileAndShow(int sockfd)
     cout<<info_to_show;
 }
 
-void RcServer::sendData(int sockfd, string data)
+void RcServer::sendData(int sockfd, string& data)
 {
     size_t data_size = data.size();
 
@@ -437,6 +439,12 @@ string RcServer::recvData(int sockfd)
     return data;
 }
 
+void RcServer::sendErrorMsg(int sockfd, string& er_msg)
+{
+    er_msg+="\n";
+    sendData(sockfd, er_msg);
+}
+
 //void sigchld_handler(int s)
 //{
 //	(void)s;
@@ -458,7 +466,7 @@ void * RcServer::get_in_addr(struct sockaddr *sa)
 	return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-void RcServer::log_message(string message, ssize_t val)
+void RcServer::logMsg(string message, ssize_t val)
 {
     ofstream outf;
     outf.open(LOG_FILE, ios::app);

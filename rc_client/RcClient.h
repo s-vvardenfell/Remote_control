@@ -43,22 +43,22 @@ public:
 
     void server_handler(int sockfd);
 
-    void show_home_dir_content(int sockfd);
-    void show_cur_dir_name(int sockfd);
-    void change_dir_to(int sockfd);
-    void show_cur_dir_content(int sockfd);
-    void show_file_detail_info(int sockfd);
-    void delete_file(int sockfd);
-    void upload_file(int sockfd);
-    void download_file(int sockfd);
-
+    void showHomeDirContent(int sockfd);
+    void showCurrDirName(int sockfd);
+    void changeDirTo(int sockfd);
+    void showCurrDirContent(int sockfd);
+    void showFileInfo(int sockfd);
+    void deleteFile(int sockfd);
+    void uploadFileToServer(int sockfd);
     void downloadFileFromServer(int sockfd);
-    string generate_file_name();
-    void read_file_and_send(int sockfd, string file_to_upload);
-    string read_file(string file_name);
 
-    void sendData(int sockfd, string data);
+    string generaneRandFileName();
+    void readFileAndSend(int sockfd, string file_to_upload);
+    string readFile(string file_name);
+
+    void sendData(int sockfd, string& data);
     string recvData(int sockfd);
+    void sendErrorMsg(int sockfd, string er_msg);
 
     void* get_in_addr(struct sockaddr *sa);
     ssize_t sendall(int sockfd, const char *buf, size_t *len);
